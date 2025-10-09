@@ -1,0 +1,22 @@
+# The name of your plugin as displayed in the Plugins Catalog web UI.
+displayName: Heroku OAuth
+
+# For now, `middleware` is the only type available.
+type: middleware
+
+# The import path of your plugin.
+import: github.com/chap/heroku-oauth-buildpack
+
+# A brief description of what your plugin is doing.
+summary: 'Implements Heroku OAuth middleware'
+
+# Medias associated to the plugin (optional)
+iconPath: heroku.png
+# bannerPath: foo/banner.png
+
+# Configuration data for your plugin.
+# This is mandatory,
+# and Plugins Catalog will try to execute the plugin with the data you provide as part of its startup validity tests.
+testData:
+  client_id: HEROKU_OAUTH_CLIENT_ID
+  client_secret: HEROKU_OAUTH_CLIENT_SECRET

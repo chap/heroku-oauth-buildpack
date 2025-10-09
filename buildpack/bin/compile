@@ -1,0 +1,40 @@
+#!/bin/sh
+
+# Download and install dyno-proxy buildpack
+# Start dyno-proxy in background
+# Dyno-proxy will install and configure heroku-oauth plugin
+
+# Exit on error
+set -e
+
+# Define buildpack directories
+BUILDPACK_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+BUILD_DIR="$1"
+CACHE_DIR="$2"
+ENV_DIR="$3"
+
+# check to see if dyno-proxy is already installed
+if [ -f $BUILDPACK_DIR/bin/dyno-proxy ]; then
+  echo "Dyno-proxy already installed"
+  exit 0
+fi
+
+# install dyno-proxy
+curl -sSL https://dyno-proxy-buildpack-staging-8e0a72cef086.herokuapp.com/buildpack-v1alpha1.tgz | tar -xz -C /tmp-dyno-proxy
+cp -r /tmp-dyno-proxy/bin/dyno-proxy* $BUILDPACK_DIR/bin/
+cp -r /tmp-dyno-proxy/bin/compile $BUILDPACK_DIR/bin/compile-dyno-proxy
+chmod +x $BUILDPACK_DIR/bin/compile-dyno-proxy
+$BUILDPACK_DIR/bin/compile-dyno-proxy $BUILD_DIR $CACHE_DIR $ENV_DIR
+echo "Dyno-proxy installed"
+
+# Automatically start dyno-proxy in background
+# prepend DYNO_PROXY=background to top of .profile.d/dyno-proxy-defaults.sh
+{
+  echo "export DYNO_PROXY=background"
+  cat $BUILD_DIR/.profile.d/dyno-proxy-defaults.sh
+} > $BUILD_DIR/.profile.d/dyno-proxy-defaults.sh.new
+mv $BUILD_DIR/.profile.d/dyno-proxy-defaults.sh.new $BUILD_DIR/.profile.d/dyno-proxy-defaults.sh
+rm $BUILD_DIR/.profile.d/dyno-proxy-defaults.sh.new
+chmod +x $BUILD_DIR/.profile.d/dyno-proxy-defaults.sh
+
+exit 0

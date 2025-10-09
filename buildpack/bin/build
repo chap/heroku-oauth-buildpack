@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo 'Not yet implemented'
+exit 0
+
+# DYNO_PROXY_BUILD_DIR="${CNB_LAYERS_DIR}/dyno-proxy"
+# TRAEFIK_VERSION="${TRAEFIK_VERSION:-3.5.3}"
+# # If TRAEFIK_VERSION doesn't start with 'v', add it
+# case "$TRAEFIK_VERSION" in
+#   v*) ;;
+#   *) TRAEFIK_VERSION="v${TRAEFIK_VERSION}" ;;
+# esac
+# TRAEFIK_URL="https://github.com/traefik/traefik/releases/download/${TRAEFIK_VERSION}/traefik_${TRAEFIK_VERSION}_linux_${CNB_TARGET_ARCH}.tar.gz"
+
+# if [[ -f "$DYNO_PROXY_BUILD_DIR/traefik-version" ]] && grep -q "$TRAEFIK_VERSION" "$DYNO_PROXY_BUILD_DIR/traefik-version" ; then
+#   echo "Using traefik $TRAEFIK_VERSION from cache"
+# else
+#   echo "Downloading traefik $TRAEFIK_VERSION from $TRAEFIK_URL"
+#   mkdir -p "${DYNO_PROXY_BUILD_DIR}/bin"
+#   curl -sSf --location --retry 3 --retry-connrefused --connect-timeout 10 "${TRAEFIK_URL}" -o traefik.tar.gz 
+#   tar xzf traefik.tar.gz
+#   mv traefik "${DYNO_PROXY_BUILD_DIR}/bin/traefik"
+#   rm traefik.tar.gz
+#   printf "%s" "$TRAEFIK_VERSION" > "${DYNO_PROXY_BUILD_DIR}/traefik-version"
+# fi
+
+# # Copy dyno-proxy script and binary for current platform
+# SCRIPT_DIR="$(dirname "$0")"
+# cp "${SCRIPT_DIR}/dyno-proxy" "${DYNO_PROXY_BUILD_DIR}/bin/dyno-proxy"
+# cp "${SCRIPT_DIR}/dyno-proxy-linux-${CNB_TARGET_ARCH}" "${DYNO_PROXY_BUILD_DIR}/bin/dyno-proxy-linux-${CNB_TARGET_ARCH}"
+
+
+# # Exec.d startup script (instead of .profile in classic buildpacks)
+# rm -rf "${DYNO_PROXY_BUILD_DIR}/exec.d"
+# mkdir -p "${DYNO_PROXY_BUILD_DIR}/exec.d"
+# cat > "${DYNO_PROXY_BUILD_DIR}/exec.d/background" << 'EOF'
+# #!/bin/bash
+
+# # To enable background mode, set DYNO_PROXY=background
+# if [ "$DYNO_PROXY" = "background" ] && echo "$DYNO" | grep -q "^web"; then
+
+#   # Only run if called from web process
+#   CALLER_INFO=$(ps -o comm= -p $PPID 2>/dev/null || echo "unknown")
+#   if [ "$CALLER_INFO" != "web" ]; then
+#     if [ "$DYNO_PROXY_LOG_LEVEL" = "DEBUG" ]; then
+#       echo "Not called from web process (caller: $CALLER_INFO), skipping dyno-proxy background mode"
+#     fi
+#     exit 0
+#   fi
+
+#   export ORIGINAL_PORT=$PORT
+#   export PROXY_PORT=$PORT
+#   export APP_PORT=$((PORT + 1))
+#   export DYNO_PROXY_LOG_LEVEL=${DYNO_PROXY_LOG_LEVEL:-ERROR}
+
+#   # In fir we have to start the web process with the dyno-proxy command
+#   # background mode never seems to start the web process no matter how we background dyno-proxy
+#   dyno-proxy background &
+  
+#   export PORT=$APP_PORT
+
+#   if [ "$DYNO_PROXY_LOG_LEVEL" = "DEBUG" ]; then
+#     echo "DEBUG: Contents of Procfile:"
+#     cat ./Procfile
+#     echo "DEBUG: ORIGINAL_PORT=$ORIGINAL_PORT, PROXY_PORT=$PROXY_PORT, APP_PORT=$APP_PORT, PORT=$PORT"
+#   fi
+  
+#   WEB_COMMAND=$(grep -E "^web:" ./Procfile | sed 's/^web: *//')
+  
+#   if [ "$DYNO_PROXY_LOG_LEVEL" = "DEBUG" ]; then
+#     echo "DEBUG: Raw web command from Procfile: '$WEB_COMMAND'"
+#     echo "DEBUG: Expanded web command: $(eval echo \"$WEB_COMMAND\")"
+#   fi
+  
+#   # Give dyno-proxy a moment to start up
+#   sleep 2
+  
+#   eval "exec $WEB_COMMAND"
+# else
+#   if [ "$DYNO_PROXY_LOG_LEVEL" = "DEBUG" ]; then
+#     if [ "$DYNO_PROXY" != "background" ]; then
+#       echo "Skipping dyno-proxy background mode because DYNO_PROXY is not set to background"
+#     fi
+#   fi
+# fi
+# EOF
+# chmod +x "${DYNO_PROXY_BUILD_DIR}/exec.d/background"
+
+# # Print the final contents
+# find "${DYNO_PROXY_BUILD_DIR}" -type f -exec ls -la {} \;
+
+# cat > "${DYNO_PROXY_BUILD_DIR}.toml" << EOL
+# [types]
+# build = true
+# cache = true
+# launch = true
+# EOL

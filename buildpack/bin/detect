@@ -1,0 +1,5 @@
+#!/bin/sh
+
+# This buildpack will always be used when specified
+echo "Heroku OAuth"
+exit 0

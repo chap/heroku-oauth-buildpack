@@ -1,0 +1,43 @@
+# Build artifacts
+# bin/dyno-proxy
+# dyno-proxy
+
+# Generated configuration files
+*.json
+
+# Temporary files
+tmp/
+*.tmp
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+logs/
+
+# Test files
+test-*.sh
+
+buildpack.tar.gz
+buildpack/bin/dyno-proxy
+buildpack/bin/dyno-proxy-darwin-amd64
+buildpack/bin/dyno-proxy-darwin-arm64
+buildpack/bin/dyno-proxy-linux-amd64
+buildpack/bin/dyno-proxy-linux-arm
+buildpack/bin/dyno-proxy-linux-arm64
+
+plugins-local/
+.env
