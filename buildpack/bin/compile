@@ -36,7 +36,6 @@ echo "Dyno-proxy installed"
   cat $BUILD_DIR/.profile.d/dyno-proxy-defaults.sh
 } > $BUILD_DIR/.profile.d/dyno-proxy-defaults.sh.new
 mv $BUILD_DIR/.profile.d/dyno-proxy-defaults.sh.new $BUILD_DIR/.profile.d/dyno-proxy-defaults.sh
-rm $BUILD_DIR/.profile.d/dyno-proxy-defaults.sh.new
 chmod +x $BUILD_DIR/.profile.d/dyno-proxy-defaults.sh
 
 exit 0
