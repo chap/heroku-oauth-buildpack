@@ -8,14 +8,10 @@
 # If ./buildpack/bin/compile and it includes the text "HEROKU_OAUTH_BUILDPACK_SOURCE=TRUE" then
 # Run ./buildpack/bin/compile with the correct arguments
 # Otherwise, continue with default behavior
-
-
-if [ -f $1/buildpack/bin/compile ]; then
-  echo "Running buildpack in $1/buildpack/bin/compile"
-  $1/buildpack/bin/compile $2 $3 $4
+if [ -n "$HEROKU_OAUTH_BUILDPACK_SOURCE" ] && [ -f $1/buildpack/bin/compile ]; then
+  echo "Running buildpack in $HEROKU_OAUTH_BUILDPACK_SOURCE"
+  $HEROKU_OAUTH_BUILDPACK_SOURCE $1 $2 $3
   exit 0
-else
-  echo "DEBUG: Running default buildpack"
 fi
 
 # Exit on error
