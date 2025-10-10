@@ -25,7 +25,7 @@ end
 File.delete(BUILDPACK_FILE) if File.exist?(BUILDPACK_FILE)
 create_buildpack_file
 
-get '/buildpack-*' do |path|
+get '/buildpack/*' do |path|
   content_type 'application/gzip'
   attachment 'buildpack.tar.gz'
   

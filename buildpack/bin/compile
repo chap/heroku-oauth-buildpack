@@ -39,7 +39,7 @@ cp -r dyno-proxy-buildpack/bin/dyno-proxy* $BUILDPACK_DIR/bin/
 cp -r dyno-proxy-buildpack/bin/compile $BUILDPACK_DIR/bin/compile-dyno-proxy
 chmod +x $BUILDPACK_DIR/bin/compile-dyno-proxy
 $BUILDPACK_DIR/bin/compile-dyno-proxy $BUILD_DIR $CACHE_DIR $ENV_DIR
-echo "Dyno-proxy installed"
+# echo "Dyno-proxy installed"
 
 # Automatically start dyno-proxy in background
 # prepend DYNO_PROXY=background to top of .profile.d/dyno-proxy-defaults.sh
