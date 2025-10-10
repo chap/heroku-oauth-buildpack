@@ -37,8 +37,13 @@ end
 
 # Start the server
 if __FILE__ == $0
-  puts "Starting buildpack server on http://localhost:#{ENV['PORT']}"
+  port = ENV['PORT'] || 4567
+  puts "Starting buildpack server on http://localhost:#{port}"
+  puts "IPv4: http://0.0.0.0:#{port}"
+  puts "IPv6: http://[::]:#{port}"
   puts "GET / to download buildpack.tar.gz"
   puts "GET /health for health check"
-  Sinatra::Application.run!
+  
+  # Bind to both IPv4 and IPv6
+  Sinatra::Application.run!(port: port, host: '::')
 end

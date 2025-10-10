@@ -4,39 +4,44 @@ Adds Heroku OAuth in front of an app.
 
 ## Quickstart
 
-1. Configure authenticated paths
+Create simple config to protect /admin* paths
 
 ```term
+mkdir -p .heroku/
 echo 'spec:
   proxy:
     - path: /admin*
       plugins:
-        - source: github.com/chap/heroku-oauth-buildpack
-' > .heroku/app.yaml
+        - source: github.com/chap/heroku-oauth-buildpack' > .heroku/app3.yaml
 ```
 
-2. [Create OAuth Client](https://dashboard.heroku.com/account/applications/clients/new)
+[Create OAuth Client](https://dashboard.heroku.com/account/applications/clients/new)
 
-3. Copy OAuth Client variables to app
+Copy OAuth Client variables to app
 
 ```term
 $ heroku config:add HEROKU_OAUTH_CLIENT_ID=<client-id> HEROKU_OAUTH_CLIENT_SECRET=<client-secret> -a <my-app>
 ```
 
-4. Install buildpack
+Install buildpack
 
 ```term
 $ heroku buildpacks:add https://heroku-oauth-buildpack-staging- -a <my-app>
 ```
 
-Rebuild app and try requesting the path.
+Rebuild app
 
 ```term
-$ git add .heroku/app.yaml && git commit .heroku/app.yaml -m "add heroku oauth configuration"
+$ git add .heroku/app.yaml
+$ git commit .heroku/app.yaml -m "add heroku oauth configuration"
 $ git push heroku
 ```
 
-## Options
+Test request
+
+```term
+$ curl <my-app-rand>.herokuapp.com/admin -i
+```
 
 Restrict to an email address domain:
 ```yaml
@@ -47,15 +52,44 @@ Restrict to an email address domain:
         domain: heroku.com
 ```
 
-Configure multiple allowed domains:
-```yaml
-- path: /*
-  plugins:
-    - source: github.com/chap/heroku-oauth-buildpack
-      config:
-        domains: 
-          - heroku.com
-          - salesforce.com
+## App Integration
+
+Heroku token is stored encrypted in a cookie. It can be read by a downstream client using `HEROKU_OAUTH_CLIENT_SECRET`.
+
+Minimal Sinatra example demonstrating cookie decryption and accessing user info:
+
+```ruby
+require 'sinatra'
+require 'openssl'
+require 'base64'
+require 'json'
+
+def decrypt_heroku_token(encrypted_data)
+  ciphertext = Base64.urlsafe_decode64(encrypted_data)
+  key        = OpenSSL::Digest::SHA256.digest(ENV['HEROKU_OAUTH_CLIENT_SECRET'])
+  
+  # Extract nonce and authentication tag
+  nonce      = ciphertext[0, 12]
+  tag        = ciphertext[-16..-1]
+  ciphertext = ciphertext[12...-16]
+  
+  # Decrypt
+  cipher          = OpenSSL::Cipher.new('aes-256-gcm')
+  cipher.decrypt
+  cipher.key      = key
+  cipher.iv       = nonce
+  cipher.auth_tag = tag
+  
+  decrypted = cipher.update(ciphertext) + cipher.final
+  JSON.parse(decrypted)
+end
+
+get '/admin' do
+  encrypted_token = request.cookies['heroku_oauth_token']
+  token_data = decrypt_heroku_token(encrypted_token)
+  
+  "Hello #{token_data['email']}"
+end
 ```
 
 ## Features
@@ -163,55 +197,7 @@ Run tests with:
 go test ./plugins/heroku-oauth/...
 ```
 
-## Integration Example
 
-The user's token is stored encrypted in a cookie. It can be read by a downstream client using the `HEROKU_OAUTH_CLIENT_SECRET`.
-
-Here's a simple Sinatra example showing how to decrypt the OAuth token cookie and display user information:
-
-```ruby
-require 'sinatra'
-require 'openssl'
-require 'base64'
-require 'json'
-
-def decrypt_heroku_token(encrypted_data)
-  return nil if encrypted_data.nil? || encrypted_data.empty?
-  
-  begin
-    ciphertext = Base64.urlsafe_decode64(encrypted_data)
-    key        = OpenSSL::Digest::SHA256.digest(ENV['HEROKU_OAUTH_CLIENT_SECRET'])
-    
-    # Extract nonce and authentication tag
-    nonce      = ciphertext[0, 12]
-    tag        = ciphertext[-16..-1]
-    ciphertext = ciphertext[12...-16]
-    
-    # Decrypt
-    cipher          = OpenSSL::Cipher.new('aes-256-gcm')
-    cipher.decrypt
-    cipher.key      = key
-    cipher.iv       = nonce
-    cipher.auth_tag = tag
-    
-    decrypted = cipher.update(ciphertext) + cipher.final
-    JSON.parse(decrypted)
-  rescue
-    nil
-  end
-end
-
-get '/admin' do
-  encrypted_token = request.cookies['heroku_oauth_token']
-  token_data = decrypt_heroku_token(encrypted_token)
-  
-  if token_data
-    "Hi #{token_data['email']}"
-  else
-    "Please authenticate with Heroku OAuth"
-  end
-end
-```
 
 ## Troubleshooting
 

@@ -1,1 +1,1 @@
-web: bundle exec rackup config.ru -p $PORT -o 0.0.0.0
+web: bundle exec ruby buildpack-server.rb

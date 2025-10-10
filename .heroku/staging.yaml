@@ -1,0 +1,12 @@
+apiVersion: heroku.com/v1alpha1
+kind: App
+metadata:
+  name: heroku-oauth-bp-staging
+spec:
+  buildpacks:
+    - heroku/ruby
+  pipeline: heroku-oauth-buildpack
+  stage: staging
+  repo: https://github.com/chap/heroku-oauth-buildpack
+  branch: main
+  auto_deploy: true
