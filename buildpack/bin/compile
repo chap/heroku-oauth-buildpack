@@ -9,7 +9,8 @@
 # Run ./buildpack/bin/compile with the correct arguments
 # Otherwise, continue with default behavior
 if [ -n "$HEROKU_OAUTH_BUILDPACK_SOURCE" ] && [ -f $1/buildpack/bin/compile ]; then
-  echo "Running buildpack in $HEROKU_OAUTH_BUILDPACK_SOURCE"
+  export HEROKU_OAUTH_BUILDPACK_SOURCE=$1/buildpack/bin/compile
+  echo "       Running buildpack in $HEROKU_OAUTH_BUILDPACK_SOURCE"
   $HEROKU_OAUTH_BUILDPACK_SOURCE $1 $2 $3
   exit 0
 fi
