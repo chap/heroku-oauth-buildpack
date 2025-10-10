@@ -82,7 +82,7 @@ end
 
 # Start the server
 if __FILE__ == $0
-  port = safe_env('PORT') || '4567'
+  port = ENV['PORT'] || '4567'
   port = port.to_i
   puts "Starting buildpack server on http://localhost:#{port}"
   puts "IPv4: http://0.0.0.0:#{port}"
