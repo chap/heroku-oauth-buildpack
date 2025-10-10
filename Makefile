@@ -1,4 +1,4 @@
-.PHONY: lint test vendor clean
+.PHONY: lint test test-compile vendor clean
 
 export GO111MODULE=on
 
@@ -9,6 +9,9 @@ lint:
 
 test:
 	go test -v -cover ./...
+
+test-compile:
+	./tests/buildpack-compile
 
 yaegi_test:
 	yaegi test -v .

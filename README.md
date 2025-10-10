@@ -194,7 +194,13 @@ The plugin includes comprehensive tests covering:
 
 Run tests with:
 ```bash
+# Run Go tests
 go test ./plugins/heroku-oauth/...
+
+# Run compile script tests
+make test-compile
+# Or run directly:
+./tests/buildpack-compile
 ```
 
 
