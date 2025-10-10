@@ -35,6 +35,14 @@ get '/health' do
   { status: 'ok', message: 'Buildpack server is running' }.to_json
 end
 
+# /echo prints headers, body, and request info
+get '/echo' do
+  content_type 'application/json'
+  response = { headers: request.env, body: request.body.read, request: request.inspect }.to_json
+  puts response
+  response
+end
+
 # Start the server
 if __FILE__ == $0
   port = ENV['PORT'] || 4567
