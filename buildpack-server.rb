@@ -75,7 +75,7 @@ get '/admin' do
   rescue => e
   end
   
-  "Admin Only - #{user}"
+  "Hi admin - #{user}"
 end
 
 # Start the server

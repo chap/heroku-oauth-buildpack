@@ -4,7 +4,7 @@ metadata:
   name: heroku-oauth-test-development
 spec:
   buildpacks:
-    - https://heroku-oauth-bp-staging-2f042de3e200.herokuapp.com/buildpack-v1alpha1.tgz
+    - https://heroku-oauth-bp-staging-2f042de3e200.herokuapp.com/buildpack/v1alpha1.tgz
     - heroku/ruby
   pipeline: heroku-oauth-buildpack
   stage: development
