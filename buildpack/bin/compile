@@ -14,6 +14,8 @@ else
   echo "DEBUG: Running default buildpack"
 fi
 
+echo "DEBUG: HEROKU_MANIFEST_FILENAME: $HEROKU_MANIFEST_FILENAME"
+
 # Exit on error
 set -e
 
