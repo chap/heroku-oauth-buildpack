@@ -13,4 +13,10 @@ spec:
   auto_deploy: true
   env:
     HEROKU_MANIFEST_FILENAME: .heroku/test-development.yaml
-    HEROKU_OAUTH_BUILDPACK_SOURCE: ./buildpack
+    DYNO_PROXY_LOG_LEVEL: DEBUG
+  proxy:
+    - path: /admin*
+      plugins:
+        - source: github.com/chap/heroku-oauth-buildpack
+          config:
+            domain: heroku.com

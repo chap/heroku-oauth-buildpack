@@ -3,6 +3,9 @@
 require 'sinatra'
 require 'zip'
 require 'fileutils'
+require 'openssl'
+require 'base64'
+require 'json'
 
 # Enable logging
 set :logging, true
@@ -41,6 +44,33 @@ get '/echo' do
   response = { headers: request.env, body: request.body.read, request: request.inspect }.to_json
   puts response
   response
+end
+
+def decrypt_heroku_token(encrypted_data)
+  ciphertext = Base64.urlsafe_decode64(encrypted_data)
+  key        = OpenSSL::Digest::SHA256.digest(ENV['HEROKU_OAUTH_CLIENT_SECRET'])
+  
+  # Extract nonce and authentication tag
+  nonce      = ciphertext[0, 12]
+  tag        = ciphertext[-16..-1]
+  ciphertext = ciphertext[12...-16]
+  
+  # Decrypt
+  cipher          = OpenSSL::Cipher.new('aes-256-gcm')
+  cipher.decrypt
+  cipher.key      = key
+  cipher.iv       = nonce
+  cipher.auth_tag = tag
+  
+  decrypted = cipher.update(ciphertext) + cipher.final
+  JSON.parse(decrypted)
+end
+
+get '/admin' do
+  encrypted_token = request.cookies['heroku_oauth_token']
+  token_data = decrypt_heroku_token(encrypted_token)
+  
+  "Hello #{token_data['email']}"
 end
 
 # Start the server
