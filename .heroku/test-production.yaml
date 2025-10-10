@@ -1,0 +1,11 @@
+apiVersion: heroku.com/v1alpha1
+kind: App
+metadata:
+  name: heroku-oauth-test-production
+spec:
+  buildpacks:
+    - https://heroku-oauth-bp-staging-2f042de3e200.herokuapp.com/buildpack-v1alpha1.tgz
+    - heroku/ruby
+  pipeline: heroku-oauth-buildpack
+  stage: production
+  repo: https://github.com/chap/heroku-oauth-buildpack
