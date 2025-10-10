@@ -1,4 +1,5 @@
 #!/bin/sh
+# encoding: utf-8
 
 # Download and install dyno-proxy buildpack
 # Start dyno-proxy in background

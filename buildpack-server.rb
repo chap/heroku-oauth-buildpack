@@ -1,5 +1,4 @@
 #!/usr/bin/env ruby
-# encoding: utf-8
 
 require 'sinatra'
 require 'zip'
@@ -7,26 +6,6 @@ require 'fileutils'
 require 'openssl'
 require 'base64'
 require 'json'
-
-# Set default external encoding to UTF-8
-Encoding.default_external = Encoding::UTF_8
-Encoding.default_internal = Encoding::UTF_8
-
-# Helper function to safely handle strings that might contain invalid UTF-8
-def safe_string(str)
-  return str if str.nil?
-  str.force_encoding('UTF-8')
-  str.valid_encoding? ? str : str.encode('UTF-8', 'UTF-8', invalid: :replace, undef: :replace)
-rescue => e
-  str.to_s.encode('UTF-8', 'UTF-8', invalid: :replace, undef: :replace)
-end
-
-# Helper function to safely get environment variables
-def safe_env(key)
-  value = ENV[key]
-  return nil if value.nil?
-  safe_string(value)
-end
 
 # Enable logging
 set :logging, true
@@ -62,22 +41,9 @@ end
 # /echo prints headers, body, and request info
 get '/echo' do
   content_type 'application/json'
-  begin
-    # Safely handle request data that might contain invalid UTF-8
-    safe_headers = request.env.transform_values { |v| safe_string(v.to_s) }
-    safe_body = safe_string(request.body.read)
-    safe_request = safe_string(request.inspect)
-    
-    response = { 
-      headers: safe_headers, 
-      body: safe_body, 
-      request: safe_request 
-    }.to_json
-    puts response
-    response
-  rescue => e
-    { error: "Failed to process request: #{e.message}" }.to_json
-  end
+  response = { headers: request.env, body: request.body.read, request: request.inspect }.to_json
+  puts response
+  response
 end
 
 def decrypt_heroku_token(encrypted_data)
