@@ -25,7 +25,7 @@ end
 File.delete(BUILDPACK_FILE) if File.exist?(BUILDPACK_FILE)
 create_buildpack_file
 
-get '/*' do
+get '/buildpack-*' do |path|
   content_type 'application/gzip'
   attachment 'buildpack.tar.gz'
   
@@ -67,10 +67,15 @@ def decrypt_heroku_token(encrypted_data)
 end
 
 get '/admin' do
-  encrypted_token = request.cookies['heroku_oauth_token']
-  token_data = decrypt_heroku_token(encrypted_token)
+  user = "(not logged in)"
+  begin
+    encrypted_token = request.cookies['heroku_oauth_token']
+    token_data = decrypt_heroku_token(encrypted_token)
+    user = token_data['email']
+  rescue => e
+  end
   
-  "Hello #{token_data['email']}"
+  "Admin Only - #{user}"
 end
 
 # Start the server
