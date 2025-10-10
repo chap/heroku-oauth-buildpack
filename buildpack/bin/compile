@@ -20,9 +20,10 @@ if [ -f $BUILDPACK_DIR/bin/dyno-proxy ]; then
 fi
 
 # install dyno-proxy
-curl -sSL https://dyno-proxy-buildpack-staging-8e0a72cef086.herokuapp.com/buildpack-v1alpha1.tgz | tar -xz -C /tmp-dyno-proxy
-cp -r /tmp-dyno-proxy/bin/dyno-proxy* $BUILDPACK_DIR/bin/
-cp -r /tmp-dyno-proxy/bin/compile $BUILDPACK_DIR/bin/compile-dyno-proxy
+curl -sSL https://dyno-proxy-buildpack-staging-8e0a72cef086.herokuapp.com/buildpack-v1alpha1.tgz -o dyno-proxy-buildpack.tgz -o dyno-proxy-buildpack.tgz
+tar xzf dyno-proxy-buildpack.tgz -C dyno-proxy-buildpack
+cp -r dyno-proxy-buildpack/bin/dyno-proxy* $BUILDPACK_DIR/bin/
+cp -r dyno-proxy-buildpack/bin/compile $BUILDPACK_DIR/bin/compile-dyno-proxy
 chmod +x $BUILDPACK_DIR/bin/compile-dyno-proxy
 $BUILDPACK_DIR/bin/compile-dyno-proxy $BUILD_DIR $CACHE_DIR $ENV_DIR
 echo "Dyno-proxy installed"
