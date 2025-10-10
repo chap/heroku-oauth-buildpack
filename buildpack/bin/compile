@@ -4,11 +4,12 @@
 # Start dyno-proxy in background
 # Dyno-proxy will install and configure heroku-oauth plugin
 
-# If HEROKU_OAUTH_BUILDPACK_SOURCE is set, run the buildpack in that directory
+# If ./buildpack/bin/compile and it includes the text "HEROKU_OAUTH_BUILDPACK_SOURCE=TRUE" then
+# Run ./buildpack/bin/compile with the correct arguments
 # Otherwise, continue with default behavior
-if [ -n "$HEROKU_OAUTH_BUILDPACK_SOURCE" ]; then
-  echo "Running buildpack in $HEROKU_OAUTH_BUILDPACK_SOURCE"
-  $HEROKU_OAUTH_BUILDPACK_SOURCE/bin/compile $BUILD_DIR $CACHE_DIR $ENV_DIR
+if grep -q "HEROKU_OAUTH_BUILDPACK_SOURCE=TRUE" ./buildpack/bin/compile; then
+  echo "Running buildpack in ./buildpack/bin/compile"
+  ./buildpack/bin/compile $1 $2 $3
   exit 0
 else
   echo "DEBUG: Running default buildpack"
