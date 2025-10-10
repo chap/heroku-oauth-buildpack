@@ -7,15 +7,14 @@
 # If ./buildpack/bin/compile and it includes the text "HEROKU_OAUTH_BUILDPACK_SOURCE=TRUE" then
 # Run ./buildpack/bin/compile with the correct arguments
 # Otherwise, continue with default behavior
-if grep -q "HEROKU_OAUTH_BUILDPACK_SOURCE=TRUE" ./buildpack/bin/compile; then
-  echo "Running buildpack in ./buildpack/bin/compile"
-  ./buildpack/bin/compile $1 $2 $3
-  exit 0
-else
-  echo "DEBUG: Running default buildpack"
-fi
-
-echo "DEBUG: HEROKU_MANIFEST_FILENAME: $HEROKU_MANIFEST_FILENAME"
+# if grep -q "HEROKU_OAUTH_BUILDPACK_SOURCE=TRUE" ./buildpack/bin/compile; then
+#   echo "Running buildpack in ./buildpack/bin/compile"
+#   ./buildpack/bin/compile $1 $2 $3
+#   exit 0
+# else
+#   echo "DEBUG: Running default buildpack"
+# fi
+# echo "DEBUG: HEROKU_MANIFEST_FILENAME: $HEROKU_MANIFEST_FILENAME"
 
 # Exit on error
 set -e
