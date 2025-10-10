@@ -1,4 +1,5 @@
 #!/usr/bin/env ruby
+# encoding: utf-8
 
 require 'sinatra'
 require 'zip'
@@ -6,6 +7,26 @@ require 'fileutils'
 require 'openssl'
 require 'base64'
 require 'json'
+
+# Set default external encoding to UTF-8
+Encoding.default_external = Encoding::UTF_8
+Encoding.default_internal = Encoding::UTF_8
+
+# Helper function to safely handle strings that might contain invalid UTF-8
+def safe_string(str)
+  return str if str.nil?
+  str.force_encoding('UTF-8')
+  str.valid_encoding? ? str : str.encode('UTF-8', 'UTF-8', invalid: :replace, undef: :replace)
+rescue => e
+  str.to_s.encode('UTF-8', 'UTF-8', invalid: :replace, undef: :replace)
+end
+
+# Helper function to safely get environment variables
+def safe_env(key)
+  value = ENV[key]
+  return nil if value.nil?
+  safe_string(value)
+end
 
 # Enable logging
 set :logging, true
@@ -41,15 +62,29 @@ end
 # /echo prints headers, body, and request info
 get '/echo' do
   content_type 'application/json'
-  response = { headers: request.env, body: request.body.read, request: request.inspect }.to_json
-  puts response
-  response
+  begin
+    # Safely handle request data that might contain invalid UTF-8
+    safe_headers = request.env.transform_values { |v| safe_string(v.to_s) }
+    safe_body = safe_string(request.body.read)
+    safe_request = safe_string(request.inspect)
+    
+    response = { 
+      headers: safe_headers, 
+      body: safe_body, 
+      request: safe_request 
+    }.to_json
+    puts response
+    response
+  rescue => e
+    { error: "Failed to process request: #{e.message}" }.to_json
+  end
 end
 
 def decrypt_heroku_token(encrypted_data)
-  return unless ENV['HEROKU_OAUTH_CLIENT_SECRET']
+  client_secret = safe_env('HEROKU_OAUTH_CLIENT_SECRET')
+  return unless client_secret
   ciphertext = Base64.urlsafe_decode64(encrypted_data)
-  key        = OpenSSL::Digest::SHA256.digest(ENV['HEROKU_OAUTH_CLIENT_SECRET'])
+  key        = OpenSSL::Digest::SHA256.digest(client_secret)
   
   # Extract nonce and authentication tag
   nonce      = ciphertext[0, 12]
@@ -81,7 +116,8 @@ end
 
 # Start the server
 if __FILE__ == $0
-  port = ENV['PORT'] || 4567
+  port = safe_env('PORT') || '4567'
+  port = port.to_i
   puts "Starting buildpack server on http://localhost:#{port}"
   puts "IPv4: http://0.0.0.0:#{port}"
   puts "IPv6: http://[::]:#{port}"
