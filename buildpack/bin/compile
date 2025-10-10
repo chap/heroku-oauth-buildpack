@@ -16,6 +16,14 @@
 # fi
 # echo "DEBUG: HEROKU_MANIFEST_FILENAME: $HEROKU_MANIFEST_FILENAME"
 
+if [ -f $1/buildpack/bin/compile ]; then
+  echo "Running buildpack in $1/buildpack/bin/compile"
+  $1/buildpack/bin/compile $2 $3 $4
+  exit 0
+else
+  echo "DEBUG: Running default buildpack"
+fi
+
 # Exit on error
 set -e
 
