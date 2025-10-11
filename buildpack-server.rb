@@ -75,6 +75,7 @@ get '/admin' do
     token_data = decrypt_heroku_token(encrypted_token)
     user = token_data['email']
   rescue => e
+    puts "Error decrypting heroku token: #{e.message}"
   end
   
   "Hi admin - #{user}"
