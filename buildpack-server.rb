@@ -47,7 +47,7 @@ get '/echo' do
 end
 
 def decrypt_heroku_token(encrypted_data)
-  client_secret = ENV['HEROKU_OAUTH_CLIENT_SECRET']
+  client_secret = ENV['HEROKU_OAUTH_SECRET']
   return unless client_secret
   ciphertext = Base64.urlsafe_decode64(encrypted_data)
   key        = OpenSSL::Digest::SHA256.digest(client_secret)
@@ -69,16 +69,16 @@ def decrypt_heroku_token(encrypted_data)
 end
 
 get '/admin' do
-  user = "(not logged in)"
+  result = "Hi admin"
   begin
     encrypted_token = request.cookies['heroku_oauth_token']
     token_data = decrypt_heroku_token(encrypted_token)
-    user = token_data['email']
+    result += " - #{token_data['email']}"
   rescue => e
     puts "Error decrypting heroku token: #{e.message}"
   end
   
-  "Hi admin - #{user}"
+  result
 end
 
 # Start the server

@@ -8,11 +8,12 @@ Create simple config to protect /admin* paths
 
 ```term
 mkdir -p .heroku/
-echo 'spec:
+echo '
+spec:
   proxy:
     - path: /admin*
       plugins:
-        - source: github.com/chap/heroku-oauth-buildpack' > .heroku/app3.yaml
+        - source: github.com/chap/heroku-oauth-buildpack' > .heroku/app.yaml
 ```
 
 [Create OAuth Client](https://dashboard.heroku.com/account/applications/clients/new)
@@ -20,7 +21,7 @@ echo 'spec:
 Copy OAuth Client variables to app
 
 ```term
-$ heroku config:add HEROKU_OAUTH_CLIENT_ID=<client-id> HEROKU_OAUTH_CLIENT_SECRET=<client-secret> -a <my-app>
+$ heroku config:add HEROKU_OAUTH_ID=<client-id> HEROKU_OAUTH_SECRET=<client-secret> -a <my-app>
 ```
 
 Install buildpack
@@ -54,7 +55,7 @@ Restrict to an email address domain:
 
 ## App Integration
 
-Heroku token is stored encrypted in a cookie. It can be read by a downstream client using `HEROKU_OAUTH_CLIENT_SECRET`.
+Heroku token is stored encrypted in a cookie. It can be read by a downstream client using `HEROKU_OAUTH_SECRET`.
 
 Minimal Sinatra example demonstrating cookie decryption and accessing user info:
 
@@ -66,7 +67,7 @@ require 'json'
 
 def decrypt_heroku_token(encrypted_data)
   ciphertext = Base64.urlsafe_decode64(encrypted_data)
-  key        = OpenSSL::Digest::SHA256.digest(ENV['HEROKU_OAUTH_CLIENT_SECRET'])
+  key        = OpenSSL::Digest::SHA256.digest(ENV['HEROKU_OAUTH_SECRET'])
   
   # Extract nonce and authentication tag
   nonce      = ciphertext[0, 12]
@@ -104,8 +105,8 @@ end
 
 Configure setup
 
-- `HEROKU_OAUTH_CLIENT_ID`: Your Heroku OAuth application client ID (required)
-- `HEROKU_OAUTH_CLIENT_SECRET`: Your Heroku OAuth application client secret (required)
+- `HEROKU_OAUTH_ID`: Your Heroku OAuth application client ID (required)
+- `HEROKU_OAUTH_SECRET`: Your Heroku OAuth application client secret (required)
 - `HEROKU_MANIFEST_FILENAME`: Path to configuration file (default: .heroku/app.yaml)
 
 ## How It Works
@@ -210,11 +211,11 @@ make test-compile
 ### Common Issues
 
 - **"client_id is required" error**
-   - Ensure `HEROKU_OAUTH_CLIENT_ID` environment variable is set
+   - Ensure `HEROKU_OAUTH_ID` environment variable is set
    - Or provide `client_id` in the plugin configuration
 
 - **"client_secret is required" error**
-   - Ensure `HEROKU_OAUTH_CLIENT_SECRET` environment variable is set
+   - Ensure `HEROKU_OAUTH_SECRET` environment variable is set
    - Or provide `client_secret` in the plugin configuration
 
 - **Callback URL mismatch**

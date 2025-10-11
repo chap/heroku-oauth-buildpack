@@ -35,11 +35,11 @@ func TestNewWithConfig(t *testing.T) {
 
 func TestNewWithEnvironmentVariables(t *testing.T) {
 	// Set environment variables
-	os.Setenv("HEROKU_OAUTH_CLIENT_ID", "env-client-id")
-	os.Setenv("HEROKU_OAUTH_CLIENT_SECRET", "env-client-secret")
+	os.Setenv("HEROKU_OAUTH_ID", "env-client-id")
+	os.Setenv("HEROKU_OAUTH_SECRET", "env-client-secret")
 	defer func() {
-		os.Unsetenv("HEROKU_OAUTH_CLIENT_ID")
-		os.Unsetenv("HEROKU_OAUTH_CLIENT_SECRET")
+		os.Unsetenv("HEROKU_OAUTH_ID")
+		os.Unsetenv("HEROKU_OAUTH_SECRET")
 	}()
 
 	cfg := heroku.CreateConfig()

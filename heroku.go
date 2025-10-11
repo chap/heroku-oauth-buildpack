@@ -172,21 +172,21 @@ func New(ctx context.Context, next http.Handler, config *Config, name string) (h
 	// Get client ID from config or environment
 	clientID := config.ClientID
 	if clientID == "" {
-		clientID = os.Getenv("HEROKU_OAUTH_CLIENT_ID")
+		clientID = os.Getenv("HEROKU_OAUTH_ID")
 	}
 	if clientID == "" {
-		logError("CONFIG_ERROR error=missing_client_id message=client_id is required (set via config or HEROKU_OAUTH_CLIENT_ID environment variable)")
-		return nil, fmt.Errorf("client_id is required (set via config or HEROKU_OAUTH_CLIENT_ID environment variable)")
+		logError("CONFIG_ERROR error=missing_client_id message=client_id is required (set via config or HEROKU_OAUTH_ID environment variable)")
+		return nil, fmt.Errorf("client_id is required (set via config or HEROKU_OAUTH_ID environment variable)")
 	}
 
 	// Get client secret from config or environment
 	clientSecret := config.ClientSecret
 	if clientSecret == "" {
-		clientSecret = os.Getenv("HEROKU_OAUTH_CLIENT_SECRET")
+		clientSecret = os.Getenv("HEROKU_OAUTH_SECRET")
 	}
 	if clientSecret == "" {
-		logError("CONFIG_ERROR error=missing_client_secret message=client_secret is required (set via config or HEROKU_OAUTH_CLIENT_SECRET environment variable)")
-		return nil, fmt.Errorf("client_secret is required (set via config or HEROKU_OAUTH_CLIENT_SECRET environment variable)")
+		logError("CONFIG_ERROR error=missing_client_secret message=client_secret is required (set via config or HEROKU_OAUTH_SECRET environment variable)")
+		return nil, fmt.Errorf("client_secret is required (set via config or HEROKU_OAUTH_SECRET environment variable)")
 	}
 
 	// Use scopes from config or default
@@ -1142,20 +1142,20 @@ func NewForTesting(ctx context.Context, next http.Handler, config *Config, name 
 	// Get client ID from config or environment
 	clientID := config.ClientID
 	if clientID == "" {
-		clientID = os.Getenv("HEROKU_OAUTH_CLIENT_ID")
+		clientID = os.Getenv("HEROKU_OAUTH_ID")
 	}
 	if clientID == "" {
-		return nil, fmt.Errorf("client_id is required (set via config or HEROKU_OAUTH_CLIENT_ID environment variable)")
+		return nil, fmt.Errorf("client_id is required (set via config or HEROKU_OAUTH_ID environment variable)")
 	}
 
 	// Get client secret from config or environment
 	clientSecret := config.ClientSecret
 	if clientSecret == "" {
-		clientSecret = os.Getenv("HEROKU_OAUTH_CLIENT_SECRET")
+		clientSecret = os.Getenv("HEROKU_OAUTH_SECRET")
 	}
 	if clientSecret == "" {
-		logError("CONFIG_ERROR error=missing_client_secret message=client_secret is required (set via config or HEROKU_OAUTH_CLIENT_SECRET environment variable)")
-		return nil, fmt.Errorf("client_secret is required (set via config or HEROKU_OAUTH_CLIENT_SECRET environment variable)")
+		logError("CONFIG_ERROR error=missing_client_secret message=client_secret is required (set via config or HEROKU_OAUTH_SECRET environment variable)")
+		return nil, fmt.Errorf("client_secret is required (set via config or HEROKU_OAUTH_SECRET environment variable)")
 	}
 
 	// Use scopes from config or default
