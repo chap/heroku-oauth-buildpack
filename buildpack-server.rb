@@ -47,7 +47,7 @@ get '/echo' do
 end
 
 def decrypt_heroku_token(encrypted_data)
-  client_secret = safe_env('HEROKU_OAUTH_CLIENT_SECRET')
+  client_secret = ENV['HEROKU_OAUTH_CLIENT_SECRET']
   return unless client_secret
   ciphertext = Base64.urlsafe_decode64(encrypted_data)
   key        = OpenSSL::Digest::SHA256.digest(client_secret)
