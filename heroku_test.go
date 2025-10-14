@@ -213,7 +213,7 @@ func TestAuthenticatedRequest(t *testing.T) {
 	}
 
 	// Should add email header
-	emailHeader := recorder.Header().Get("X-DYNO-PROXY-HEROKU-EMAIL")
+	emailHeader := recorder.Header().Get("X-HEROKU-OAUTH")
 	if emailHeader != "test@example.com" {
 		t.Errorf("expected email header test@example.com, got %s", emailHeader)
 	}
@@ -554,7 +554,7 @@ func TestAuthenticatedRequestWithEncryptedToken(t *testing.T) {
 	ctx := context.Background()
 	next := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		// Verify headers are set correctly
-		email := rw.Header().Get("X-DYNO-PROXY-HEROKU-EMAIL")
+		email := rw.Header().Get("X-HEROKU-OAUTH")
 		teams := rw.Header().Get("X-DYNO-PROXY-HEROKU-TEAMS")
 
 		if email != "test@example.com" {
@@ -678,7 +678,7 @@ func TestTokenRefreshSuccess(t *testing.T) {
 	}
 
 	// Should set email header
-	emailHeader := recorder.Header().Get("X-DYNO-PROXY-HEROKU-EMAIL")
+	emailHeader := recorder.Header().Get("X-HEROKU-OAUTH")
 	if emailHeader != "test@example.com" {
 		t.Errorf("expected email header test@example.com, got %s", emailHeader)
 	}

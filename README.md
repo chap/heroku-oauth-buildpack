@@ -4,60 +4,66 @@ Adds Heroku OAuth in front of an app.
 
 ## Quickstart
 
-Create simple config to protect /admin* paths
+1. Install buildpack
 
 ```term
-mkdir -p .heroku/
-echo '
-spec:
-  proxy:
-    - path: /admin*
-      plugins:
-        - source: github.com/chap/heroku-oauth-buildpack' > .heroku/app.yaml
+$ heroku buildpacks:add https://heroku-oauth-bp-staging-2f042de3e200.herokuapp.com/buildpack/v1alpha1.tgz -a <my-app>
 ```
 
-[Create OAuth Client](https://dashboard.heroku.com/account/applications/clients/new)
 
-Copy OAuth Client variables to app
+2. Configure protected paths in `app.json`
 
 ```term
-$ heroku config:add HEROKU_OAUTH_ID=<client-id> HEROKU_OAUTH_SECRET=<client-secret> -a <my-app>
+echo '{
+  "proxy": {
+    "path": "/admin*"
+    "plugins": [
+      {
+        "source": "github.com/chap/heroku-oauth-buildpack"
+      }
+    ]
+  }
+}' > app.json
 ```
 
-Install buildpack
+3. [Create OAuth Client](https://dashboard.heroku.com/account/applications/clients/new) and copy variables to app
 
 ```term
-$ heroku buildpacks:add https://heroku-oauth-buildpack-staging- -a <my-app>
+$ heroku config:add HEROKU_OAUTH_ID=<id> HEROKU_OAUTH_SECRET=<secret> -a <my-app>
 ```
 
-Rebuild app
+Rebuild app and make a test request.
+
+## Options
+
+Restrict authentication to an email address domain:
+```json
+{
+  "proxy": {
+    "path": "/admin*"
+    "plugins": [
+      {
+        "source": "github.com/chap/heroku-oauth-buildpack",
+        "config": {
+          "domain": "heroku.com"
+        }
+      }
+    ]
+  }
+}
+```
+
+Use a different file for configuration
 
 ```term
-$ git add .heroku/app.yaml
-$ git commit .heroku/app.yaml -m "add heroku oauth configuration"
-$ git push heroku
-```
-
-Test request
-
-```term
-$ curl <my-app-rand>.herokuapp.com/admin -i
-```
-
-Restrict to an email address domain:
-```yaml
-- path: /*
-  plugins:
-    - source: github.com/chap/heroku-oauth-buildpack
-      config:
-        domain: heroku.com
+$ heroku config:set HEROKU_MANIFEST_FILENAME=./deploy/heroku.yaml
 ```
 
 ## App Integration
 
 Heroku token is stored encrypted in a cookie. It can be read by a downstream client using `HEROKU_OAUTH_SECRET`.
 
-Minimal Sinatra example demonstrating cookie decryption and accessing user info:
+Minimal webserver accessing user info:
 
 ```ruby
 require 'sinatra'
@@ -120,7 +126,7 @@ Configure setup
 5. **Token Exchange**: The plugin exchanges the authorization code for an access token and refresh token
 6. **User Info Retrieval**: The plugin fetches the user's account information from Heroku API
 7. **Session Creation**: The user's email and tokens are stored in secure HTTP cookies
-8. **Request Processing**: Subsequent requests include the `X-DYNO-PROXY-HEROKU-EMAIL` header
+8. **Request Processing**: Subsequent requests include the `X-HEROKU-OAUTH` header
 
 ### Token Refresh Flow
 
@@ -168,7 +174,7 @@ Unlike traditional session management that requires external storage (Redis, dat
 Once authenticated, all proxy requests will include:
 
 ```
-X-DYNO-PROXY-HEROKU-EMAIL: user@example.com
+X-HEROKU-OAUTH: user@example.com
 ```
 
 

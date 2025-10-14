@@ -346,7 +346,7 @@ func (h *HerokuOAuth) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		}
 
 		// User is authenticated, add headers and continue
-		rw.Header().Set("X-DYNO-PROXY-HEROKU-EMAIL", tokenData.Email)
+		rw.Header().Set("X-HEROKU-OAUTH", tokenData.Email)
 
 		if tokenData.Teams != "" {
 			rw.Header().Set("X-DYNO-PROXY-HEROKU-TEAMS", tokenData.Teams)
