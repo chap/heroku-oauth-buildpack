@@ -71,7 +71,7 @@ require 'openssl'
 require 'base64'
 require 'json'
 
-def "/admin" do
+def '/admin' do
   encrypted_token = request.cookies['heroku_oauth_token']
   ciphertext      = Base64.urlsafe_decode64(encrypted_data)
   key             = OpenSSL::Digest::SHA256.digest(ENV['HEROKU_OAUTH_SECRET'])
