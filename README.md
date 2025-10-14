@@ -71,14 +71,13 @@ require 'openssl'
 require 'base64'
 require 'json'
 
-def decrypt_heroku_token(encrypted_data)
-  ciphertext = Base64.urlsafe_decode64(encrypted_data)
-  key        = OpenSSL::Digest::SHA256.digest(ENV['HEROKU_OAUTH_SECRET'])
-  
-  # Extract nonce and authentication tag
-  nonce      = ciphertext[0, 12]
-  tag        = ciphertext[-16..-1]
-  ciphertext = ciphertext[12...-16]
+def "/admin" do
+  encrypted_token = request.cookies['heroku_oauth_token']
+  ciphertext      = Base64.urlsafe_decode64(encrypted_data)
+  key             = OpenSSL::Digest::SHA256.digest(ENV['HEROKU_OAUTH_SECRET'])
+  nonce           = ciphertext[0, 12]
+  tag             = ciphertext[-16..-1]
+  ciphertext      = ciphertext[12...-16]
   
   # Decrypt
   cipher          = OpenSSL::Cipher.new('aes-256-gcm')
@@ -87,14 +86,9 @@ def decrypt_heroku_token(encrypted_data)
   cipher.iv       = nonce
   cipher.auth_tag = tag
   
-  decrypted = cipher.update(ciphertext) + cipher.final
-  JSON.parse(decrypted)
-end
+  decrypted  = cipher.update(ciphertext) + cipher.final
+  token_data = JSON.parse(decrypted)
 
-get '/admin' do
-  encrypted_token = request.cookies['heroku_oauth_token']
-  token_data = decrypt_heroku_token(encrypted_token)
-  
   "Hello #{token_data['email']}"
 end
 ```
