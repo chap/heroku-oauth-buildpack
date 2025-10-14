@@ -4,7 +4,7 @@ Adds Heroku OAuth in front of an app.
 
 ## Quickstart
 
-1. Install buildpack
+1. Install buildpack (classic only for now)
 
 ```term
 $ heroku buildpacks:add https://heroku-oauth-bp-staging-2f042de3e200.herokuapp.com/buildpack/v1alpha1.tgz -a <my-app>
@@ -251,6 +251,10 @@ Each log entry includes:
 - `url`: The full request URL
 
 Set `HEROKU_OAUTH_LOG_LEVEL=DEBUG` for additional setup and debugging information.
+
+## Known Issues
+
+- 
 
 
 ## Next
