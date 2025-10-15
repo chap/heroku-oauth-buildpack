@@ -46,7 +46,32 @@ get '/echo' do
   response
 end
 
-def decrypt_heroku_token(encrypted_data)
+# JWT decoding function with standard RFC 7519 claim validation
+def decode_jwt(token)
+  parts = token.split('.')
+  return nil unless parts.length == 3
+  
+  header, payload, signature = parts
+  
+  # Verify signature
+  message = "#{header}.#{payload}"
+  expected_signature = Base64.urlsafe_encode64(
+    OpenSSL::HMAC.digest('SHA256', ENV['HEROKU_OAUTH_SECRET'], message), 
+    padding: false
+  )
+  
+  return nil unless signature == expected_signature
+  
+  # Decode payload
+  claims = JSON.parse(Base64.urlsafe_decode64(payload))
+  
+  claims
+rescue => e
+  puts "Error decoding JWT: #{e.message}"
+  nil
+end
+
+def decrypt_heroku_jwt(encrypted_data)
   client_secret = ENV['HEROKU_OAUTH_SECRET']
   return unless client_secret
   ciphertext = Base64.urlsafe_decode64(encrypted_data)
@@ -65,20 +90,40 @@ def decrypt_heroku_token(encrypted_data)
   cipher.auth_tag = tag
   
   decrypted = cipher.update(ciphertext) + cipher.final
-  JSON.parse(decrypted)
+  jwt_token = decrypted
+  
+  # Decode the JWT and return claims directly
+  decode_jwt(jwt_token)
 end
 
 get '/admin' do
   result = "Hi admin"
   begin
-    encrypted_token = request.cookies['heroku_oauth_token']
-    token_data = decrypt_heroku_token(encrypted_token)
-    result += " - #{token_data['email']}"
+    encrypted_token = request.cookies['heroku_oauth_jwt']
+    claims = decrypt_heroku_jwt(encrypted_token)
+    result += " - #{claims['email']}" if claims
   rescue => e
-    puts "Error decrypting heroku token: #{e.message}"
+    puts "Error decrypting heroku JWT: #{e.message}"
   end
   
   result
+end
+
+get '/madmin' do
+  ciphertext = Base64.urlsafe_decode64(request.cookies['heroku_oauth_jwt'])
+  nonce           = ciphertext[0, 12]
+  tag             = ciphertext[-16..-1]
+  ciphertext      = ciphertext[12...-16]
+  cipher          = OpenSSL::Cipher.new('aes-256-gcm')
+  cipher.key      = OpenSSL::Digest::SHA256.digest(ENV['HEROKU_OAUTH_SECRET'])
+  cipher.iv       = nonce
+  cipher.auth_tag = tag
+  cipher.decrypt
+  jwt             = cipher.update(ciphertext) + cipher.final
+  parts           = jwt.split('.')
+  user_info       = JSON.parse(Base64.urlsafe_decode64(parts[1]))
+
+  "Hello #{user_info['email']}"
 end
 
 # Start the server

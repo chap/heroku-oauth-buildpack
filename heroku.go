@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
@@ -35,7 +36,7 @@ const (
 	sessionEmailKey       = "heroku_oauth_email"
 	sessionOriginalURLKey = "heroku_oauth_original_url"
 	sessionTeamsKey       = "heroku_oauth_teams"
-	sessionTokenKey       = "heroku_oauth_token"
+	sessionTokenKey       = "heroku_oauth_jwt"
 )
 
 // Log level constants
@@ -270,43 +271,51 @@ func (h *HerokuOAuth) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	// Check if user is already authenticated
-	if tokenData := h.getAuthenticatedTokenData(req); tokenData != nil {
+	if claims := h.getAuthenticatedJWTClaims(req); claims != nil {
 		// Log token check
 		requestID := req.Header.Get("X-Request-ID")
 		if requestID == "" {
 			requestID = "unknown"
 		}
+		email := getStringClaim(claims, "email")
+		userID := getStringClaim(claims, "sub")
 		logTraefikStyle("INFO", fmt.Sprintf("TOKEN_CHECK user_email=%s user_id=%s request_id=%s url=%s",
-			tokenData.Email, tokenData.UserID, requestID, req.URL.String()))
+			email, userID, requestID, req.URL.String()))
 
 		// Check if token is expired
-		if time.Now().Unix() > tokenData.ExpiresAt {
+		exp := getInt64Claim(claims, "exp")
+		if time.Now().Unix() > exp {
 			// Token expired, try to refresh if refresh token is available and not expired
-			if tokenData.RefreshToken != "" && time.Now().Unix() < tokenData.RefreshExpiresAt {
+			refreshToken := getStringClaim(claims, "refresh_token")
+			refreshExp := getInt64Claim(claims, "refresh_expires_at")
+			if refreshToken != "" && time.Now().Unix() < refreshExp {
 				// Attempt to refresh the token
-				newTokenResp, err := h.refreshAccessToken(tokenData.RefreshToken)
+				newTokenResp, err := h.refreshAccessToken(refreshToken)
 				if err == nil {
-					// Refresh successful, update token data
-					updatedTokenData := &TokenData{
-						AccessToken:      newTokenResp.AccessToken,
-						TokenType:        newTokenResp.TokenType,
-						ExpiresIn:        newTokenResp.ExpiresIn,
-						RefreshToken:     newTokenResp.RefreshToken, // Use new refresh token if provided
-						UserID:           tokenData.UserID,
-						SessionNonce:     tokenData.SessionNonce,
-						Email:            tokenData.Email,
-						Teams:            tokenData.Teams,
-						ExpiresAt:        time.Now().Unix() + int64(newTokenResp.ExpiresIn),
-						RefreshExpiresAt: tokenData.RefreshExpiresAt, // Keep existing refresh expiration
+					// Refresh successful, update JWT claims
+					now := time.Now().Unix()
+					updatedClaims := make(map[string]interface{})
+
+					// Copy existing claims
+					for k, v := range claims {
+						updatedClaims[k] = v
 					}
 
-					// If new refresh token is provided, update the expiration
+					// Update with new token data
+					updatedClaims["access_token"] = newTokenResp.AccessToken
+					updatedClaims["token_type"] = newTokenResp.TokenType
+					updatedClaims["expires_in"] = newTokenResp.ExpiresIn
+					updatedClaims["exp"] = now + int64(newTokenResp.ExpiresIn)
+					updatedClaims["iat"] = now
+
+					// Use new refresh token if provided
 					if newTokenResp.RefreshToken != "" {
-						updatedTokenData.RefreshExpiresAt = time.Now().Unix() + (30 * 24 * 60 * 60) // 30 days
+						updatedClaims["refresh_token"] = newTokenResp.RefreshToken
+						updatedClaims["refresh_expires_at"] = now + (30 * 24 * 60 * 60) // 30 days
 					}
 
-					// Encrypt and store the updated token data
-					encryptedToken, err := EncryptTokenData(updatedTokenData, h.clientSecret)
+					// Encrypt and store the updated JWT claims
+					encryptedToken, err := EncryptJWTClaims(updatedClaims, h.clientSecret)
 					if err == nil {
 						http.SetCookie(rw, &http.Cookie{
 							Name:     sessionTokenKey,
@@ -317,8 +326,8 @@ func (h *HerokuOAuth) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 							SameSite: http.SameSiteLaxMode,
 						})
 
-						// Update tokenData for header injection
-						tokenData = updatedTokenData
+						// Update claims for header injection
+						claims = updatedClaims
 					}
 				} else {
 					// Log refresh token failure
@@ -327,18 +336,18 @@ func (h *HerokuOAuth) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 						requestID = "unknown"
 					}
 					logWarn("REFRESH_FAILURE error=refresh_token_failed error_detail=%v user_email=%s user_id=%s request_id=%s url=%s",
-						err, tokenData.Email, tokenData.UserID, requestID, req.URL.String())
+						err, email, userID, requestID, req.URL.String())
 				}
 			}
 
 			// If refresh failed or no refresh token available, clear cookies and redirect to OAuth
-			if time.Now().Unix() > tokenData.ExpiresAt {
+			if time.Now().Unix() > exp {
 				requestID := req.Header.Get("X-Request-ID")
 				if requestID == "" {
 					requestID = "unknown"
 				}
 				logWarn("REFRESH_FAILURE user_email=%s user_id=%s request_id=%s url=%s",
-					tokenData.Email, tokenData.UserID, requestID, req.URL.String())
+					email, userID, requestID, req.URL.String())
 				h.clearAuthenticationCookies(rw, req)
 				h.initiateOAuth(rw, req)
 				return
@@ -346,10 +355,11 @@ func (h *HerokuOAuth) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		}
 
 		// User is authenticated, add headers and continue
-		rw.Header().Set("X-HEROKU-OAUTH", tokenData.Email)
+		rw.Header().Set("X-HEROKU-OAUTH", email)
 
-		if tokenData.Teams != "" {
-			rw.Header().Set("X-DYNO-PROXY-HEROKU-TEAMS", tokenData.Teams)
+		teams := getStringClaim(claims, "teams")
+		if teams != "" {
+			rw.Header().Set("X-DYNO-PROXY-HEROKU-TEAMS", teams)
 		}
 
 		h.next.ServeHTTP(rw, req)
@@ -522,7 +532,7 @@ func (h *HerokuOAuth) handleOAuthCallback(rw http.ResponseWriter, req *http.Requ
 		return
 	}
 
-	// Create token data with all information
+	// Create JWT claims with all information
 	var teamNames []string
 	for _, org := range organizations {
 		teamNames = append(teamNames, org.Name)
@@ -531,24 +541,32 @@ func (h *HerokuOAuth) handleOAuthCallback(rw http.ResponseWriter, req *http.Requ
 
 	// Calculate refresh token expiration (typically 30 days from now)
 	refreshExpiresAt := time.Now().Unix() + (30 * 24 * 60 * 60) // 30 days in seconds
+	now := time.Now().Unix()
 
-	tokenData := &TokenData{
-		AccessToken:      tokenResp.AccessToken,
-		TokenType:        tokenResp.TokenType,
-		ExpiresIn:        tokenResp.ExpiresIn,
-		RefreshToken:     tokenResp.RefreshToken,
-		UserID:           tokenResp.UserID,
-		SessionNonce:     tokenResp.SessionNonce,
-		Email:            account.Email,
-		Teams:            teamsValue,
-		ExpiresAt:        time.Now().Unix() + int64(tokenResp.ExpiresIn),
-		RefreshExpiresAt: refreshExpiresAt,
+	// Create JWT claims with standard and custom claims
+	claims := map[string]interface{}{
+		// Standard JWT Claims (RFC 7519 Section 4.1)
+		"iss": "heroku-oauth",                   // Issuer
+		"sub": tokenResp.UserID,                 // Subject (user ID)
+		"aud": "heroku-oauth-app",               // Audience
+		"exp": now + int64(tokenResp.ExpiresIn), // Expiration Time
+		"iat": now,                              // Issued At
+		"jti": tokenResp.SessionNonce,           // JWT ID
+
+		// Custom claims for Heroku OAuth data
+		"access_token":       tokenResp.AccessToken,
+		"token_type":         tokenResp.TokenType,
+		"expires_in":         tokenResp.ExpiresIn,
+		"refresh_token":      tokenResp.RefreshToken,
+		"email":              account.Email,
+		"teams":              teamsValue,
+		"refresh_expires_at": refreshExpiresAt,
 	}
 
-	// Encrypt and store the complete token data
-	encryptedToken, err := EncryptTokenData(tokenData, h.clientSecret)
+	// Encrypt and store the JWT claims
+	encryptedToken, err := EncryptJWTClaims(claims, h.clientSecret)
 	if err != nil {
-		http.Error(rw, fmt.Sprintf("Failed to encrypt token data: %v", err), http.StatusInternalServerError)
+		http.Error(rw, fmt.Sprintf("Failed to encrypt JWT claims: %v", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -768,36 +786,48 @@ func (h *HerokuOAuth) getUserOrganizations(accessToken string) ([]HerokuOrganiza
 	return organizations, nil
 }
 
-// getAuthenticatedTokenData retrieves and decrypts the authenticated user's token data from the session.
-func (h *HerokuOAuth) getAuthenticatedTokenData(req *http.Request) *TokenData {
+// getAuthenticatedJWTClaims retrieves and decrypts the authenticated user's JWT claims from the session.
+func (h *HerokuOAuth) getAuthenticatedJWTClaims(req *http.Request) map[string]interface{} {
 	cookie, err := req.Cookie(sessionTokenKey)
 	if err != nil {
 		// Fallback to old email-based authentication for backward compatibility
 		if email := h.getAuthenticatedEmail(req); email != "" {
-			// Return a minimal token data structure for backward compatibility
-			return &TokenData{
-				Email:     email,
-				Teams:     h.getAuthenticatedTeamsString(req),
-				ExpiresAt: time.Now().Unix() + 3600, // Default 1 hour expiration
+			// Return minimal JWT claims for backward compatibility
+			now := time.Now().Unix()
+			return map[string]interface{}{
+				"iss":   "heroku-oauth",
+				"sub":   "legacy-user",
+				"aud":   "heroku-oauth-app",
+				"exp":   now + 3600, // Default 1 hour expiration
+				"iat":   now,
+				"jti":   "legacy-session",
+				"email": email,
+				"teams": h.getAuthenticatedTeamsString(req),
 			}
 		}
 		return nil
 	}
 
-	tokenData, err := DecryptTokenData(cookie.Value, h.clientSecret)
+	claims, err := DecryptJWTClaims(cookie.Value, h.clientSecret)
 	if err != nil {
 		// If decryption fails, fallback to old email-based authentication
 		if email := h.getAuthenticatedEmail(req); email != "" {
-			return &TokenData{
-				Email:     email,
-				Teams:     h.getAuthenticatedTeamsString(req),
-				ExpiresAt: time.Now().Unix() + 3600, // Default 1 hour expiration
+			now := time.Now().Unix()
+			return map[string]interface{}{
+				"iss":   "heroku-oauth",
+				"sub":   "legacy-user",
+				"aud":   "heroku-oauth-app",
+				"exp":   now + 3600, // Default 1 hour expiration
+				"iat":   now,
+				"jti":   "legacy-session",
+				"email": email,
+				"teams": h.getAuthenticatedTeamsString(req),
 			}
 		}
 		return nil
 	}
 
-	return tokenData
+	return claims
 }
 
 // getAuthenticatedEmail retrieves the authenticated user's email from the session (backward compatibility).
@@ -860,9 +890,9 @@ func (h *HerokuOAuth) clearAuthenticationCookies(rw http.ResponseWriter, req *ht
 func (h *HerokuOAuth) handleLogout(rw http.ResponseWriter, req *http.Request) {
 	// Get user info before clearing cookies for logging
 	var userEmail, userID string
-	if tokenData := h.getAuthenticatedTokenData(req); tokenData != nil {
-		userEmail = tokenData.Email
-		userID = tokenData.UserID
+	if claims := h.getAuthenticatedJWTClaims(req); claims != nil {
+		userEmail = getStringClaim(claims, "email")
+		userID = getStringClaim(claims, "sub")
 	}
 
 	// Clear all authentication cookies
@@ -972,33 +1002,162 @@ func DecryptState(encryptedState, clientSecret string) (string, error) {
 	return string(plaintext), nil
 }
 
-// EncryptTokenData encrypts the token data using the client secret as the key.
-func EncryptTokenData(tokenData *TokenData, clientSecret string) (string, error) {
-	// Serialize token data to JSON
-	jsonData, err := json.Marshal(tokenData)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal token data: %v", err)
+// EncryptJWTClaims encrypts JWT claims using the client secret as the key.
+func EncryptJWTClaims(claims map[string]interface{}, clientSecret string) (string, error) {
+	// Ensure standard JWT claims are present
+	now := time.Now().Unix()
+	if claims["iat"] == nil {
+		claims["iat"] = now
+	}
+	if claims["iss"] == nil {
+		claims["iss"] = "heroku-oauth"
+	}
+	if claims["aud"] == nil {
+		claims["aud"] = "heroku-oauth-app"
 	}
 
-	// Encrypt the JSON data
-	return EncryptState(string(jsonData), clientSecret)
+	// Encode as JWT
+	jwtToken, err := EncodeJWT(claims, clientSecret)
+	if err != nil {
+		return "", fmt.Errorf("failed to encode JWT: %v", err)
+	}
+
+	// Encrypt the JWT data
+	return EncryptState(jwtToken, clientSecret)
 }
 
-// DecryptTokenData decrypts the encrypted token data using the client secret as the key.
-func DecryptTokenData(encryptedData, clientSecret string) (*TokenData, error) {
+// DecryptJWTClaims decrypts the encrypted JWT claims using the client secret as the key.
+func DecryptJWTClaims(encryptedData, clientSecret string) (map[string]interface{}, error) {
 	// Decrypt the data
 	decryptedData, err := DecryptState(encryptedData, clientSecret)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt token data: %v", err)
+		return nil, fmt.Errorf("failed to decrypt JWT data: %v", err)
 	}
 
-	// Deserialize JSON data
-	var tokenData TokenData
-	if err := json.Unmarshal([]byte(decryptedData), &tokenData); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal token data: %v", err)
+	// The decrypted data is now a JWT token, decode it
+	return DecodeJWT(decryptedData, clientSecret)
+}
+
+// EncodeJWT creates a JWT token with the given payload using HS256 algorithm.
+func EncodeJWT(payload map[string]interface{}, secret string) (string, error) {
+	// Create header
+	header := map[string]interface{}{
+		"alg": "HS256",
+		"typ": "JWT",
 	}
 
-	return &tokenData, nil
+	// Encode header
+	headerJSON, err := json.Marshal(header)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal header: %v", err)
+	}
+	encodedHeader := base64.RawURLEncoding.EncodeToString(headerJSON)
+
+	// Encode payload
+	payloadJSON, err := json.Marshal(payload)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal payload: %v", err)
+	}
+	encodedPayload := base64.RawURLEncoding.EncodeToString(payloadJSON)
+
+	// Create signature
+	message := encodedHeader + "." + encodedPayload
+	signature := hmac.New(sha256.New, []byte(secret))
+	signature.Write([]byte(message))
+	encodedSignature := base64.RawURLEncoding.EncodeToString(signature.Sum(nil))
+
+	return message + "." + encodedSignature, nil
+}
+
+// DecodeJWT decodes and verifies a JWT token using HS256 algorithm.
+func DecodeJWT(token, secret string) (map[string]interface{}, error) {
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		return nil, fmt.Errorf("invalid JWT format")
+	}
+
+	header, payload, signature := parts[0], parts[1], parts[2]
+
+	// Verify signature
+	message := header + "." + payload
+	expectedSignature := hmac.New(sha256.New, []byte(secret))
+	expectedSignature.Write([]byte(message))
+	expectedEncodedSignature := base64.RawURLEncoding.EncodeToString(expectedSignature.Sum(nil))
+
+	if signature != expectedEncodedSignature {
+		return nil, fmt.Errorf("invalid JWT signature")
+	}
+
+	// Decode payload
+	payloadBytes, err := base64.RawURLEncoding.DecodeString(payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode JWT payload: %v", err)
+	}
+
+	// Parse payload into map to access standard JWT claims
+	var claims map[string]interface{}
+	if err := json.Unmarshal(payloadBytes, &claims); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal JWT payload: %v", err)
+	}
+
+	// Validate standard JWT claims
+	if err := validateJWTClaims(claims); err != nil {
+		return nil, fmt.Errorf("JWT validation failed: %v", err)
+	}
+
+	return claims, nil
+}
+
+// validateJWTClaims validates standard JWT claims according to RFC 7519
+func validateJWTClaims(claims map[string]interface{}) error {
+
+	// Validate issuer
+	if iss, ok := claims["iss"].(string); !ok || iss != "heroku-oauth" {
+		return fmt.Errorf("invalid issuer claim")
+	}
+
+	// Validate audience
+	if aud, ok := claims["aud"].(string); !ok || aud != "heroku-oauth-app" {
+		return fmt.Errorf("invalid audience claim")
+	}
+
+	// Validate expiration time
+	if exp, ok := claims["exp"].(float64); ok {
+		if int64(exp) < time.Now().Unix() {
+			return fmt.Errorf("JWT has expired")
+		}
+	}
+
+	// Validate issued at time (should not be in the future)
+	if iat, ok := claims["iat"].(float64); ok {
+		if int64(iat) > time.Now().Unix()+60 { // Allow 60 seconds clock skew
+			return fmt.Errorf("JWT issued in the future")
+		}
+	}
+
+	return nil
+}
+
+// Helper functions to safely extract claims from JWT payload
+func getStringClaim(claims map[string]interface{}, key string) string {
+	if val, ok := claims[key].(string); ok {
+		return val
+	}
+	return ""
+}
+
+func getIntClaim(claims map[string]interface{}, key string) int {
+	if val, ok := claims[key].(float64); ok {
+		return int(val)
+	}
+	return 0
+}
+
+func getInt64Claim(claims map[string]interface{}, key string) int64 {
+	if val, ok := claims[key].(float64); ok {
+		return int64(val)
+	}
+	return 0
 }
 
 // validateEmailDomain checks if the user's email domain is allowed based on configuration.

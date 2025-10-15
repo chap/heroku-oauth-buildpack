@@ -15,14 +15,14 @@ $ heroku buildpacks:add https://heroku-oauth-bp-staging-2f042de3e200.herokuapp.c
 
 ```term
 echo '{
-  "proxy": {
-    "path": "/admin*"
+  "proxy": [{
+    "path": "/admin*",
     "plugins": [
       {
         "source": "github.com/chap/heroku-oauth-buildpack"
       }
     ]
-  }
+  }]
 }' > app.json
 ```
 
@@ -39,8 +39,8 @@ Rebuild app and make a test request.
 Restrict authentication to an email address domain:
 ```json
 {
-  "proxy": {
-    "path": "/admin*"
+  "proxy": [{
+    "path": "/admin*",
     "plugins": [
       {
         "source": "github.com/chap/heroku-oauth-buildpack",
@@ -49,7 +49,7 @@ Restrict authentication to an email address domain:
         }
       }
     ]
-  }
+  }]
 }
 ```
 
@@ -61,7 +61,18 @@ $ heroku config:set HEROKU_MANIFEST_FILENAME=./deploy/heroku.yaml
 
 ## App Integration
 
-Heroku token is stored encrypted in a cookie. It can be read by a downstream client using `HEROKU_OAUTH_SECRET`.
+Heroku token is stored as an encrypted JWT in a cookie. It can be read by a downstream client using `HEROKU_OAUTH_SECRET`.
+
+The JWT follows the [RFC 7519](https://datatracker.ietf.org/doc/html/rfc7519) standard and includes the following standard claims:
+
+- **iss** (Issuer): `"heroku-oauth-buildpack"` - identifies the principal that issued the JWT
+- **sub** (Subject): User ID - identifies the subject of the JWT (the authenticated user)
+- **aud** (Audience): `"heroku-oauth-app"` - identifies the recipients that the JWT is intended for
+- **exp** (Expiration Time): Unix timestamp - identifies the expiration time on or after which the JWT MUST NOT be accepted
+- **iat** (Issued At): Unix timestamp - identifies the time at which the JWT was issued
+- **jti** (JWT ID): Session nonce - provides a unique identifier for the JWT
+
+Additional custom claims include the Heroku OAuth access token, refresh token, user email, and team information.
 
 Minimal webserver accessing user info:
 
@@ -71,25 +82,21 @@ require 'openssl'
 require 'base64'
 require 'json'
 
-def '/admin' do
-  encrypted_token = request.cookies['heroku_oauth_token']
-  ciphertext      = Base64.urlsafe_decode64(encrypted_data)
-  key             = OpenSSL::Digest::SHA256.digest(ENV['HEROKU_OAUTH_SECRET'])
+get '/admin' do
+  ciphertext = Base64.urlsafe_decode64(request.cookies['heroku_oauth_jwt'])
   nonce           = ciphertext[0, 12]
   tag             = ciphertext[-16..-1]
   ciphertext      = ciphertext[12...-16]
-  
-  # Decrypt
   cipher          = OpenSSL::Cipher.new('aes-256-gcm')
-  cipher.decrypt
-  cipher.key      = key
+  cipher.key      = OpenSSL::Digest::SHA256.digest(ENV['HEROKU_OAUTH_SECRET'])
   cipher.iv       = nonce
   cipher.auth_tag = tag
-  
-  decrypted  = cipher.update(ciphertext) + cipher.final
-  token_data = JSON.parse(decrypted)
+  cipher.decrypt
+  jwt             = cipher.update(ciphertext) + cipher.final
+  parts           = jwt.split('.')
+  user_info       = JSON.parse(Base64.urlsafe_decode64(parts[1]))
 
-  "Hello #{token_data['email']}"
+  "Hello #{user_info['email']}"
 end
 ```
 
@@ -146,15 +153,24 @@ The OAuth state parameter is a critical security feature that prevents Cross-Sit
 
 This approach ensures that only the legitimate OAuth flow can complete successfully, preventing malicious sites from initiating unauthorized OAuth requests.
 
-### Stateless Session Management
+### JWT in Cookie Session Management
 
-Unlike traditional session management that requires external storage (Redis, databases), this implementation uses encrypted cookies:
+Unlike traditional session management that requires external storage (Redis, databases), this implementation uses JWT tokens stored in encrypted cookies:
 
-- **Encryption**: All session data (tokens, user info, teams) is encrypted using AES-256-GCM
+- **JWT Structure**: User data is encoded as a standard JWT with RFC 7519 claims (iss, sub, aud, exp, iat, jti)
+- **Double Security**: JWT is first signed with HMAC-SHA256, then encrypted with AES-256-GCM
 - **Self-contained**: Each cookie contains all necessary information, eliminating server-side session storage
 - **Scalable**: No shared state between application instances, enabling horizontal scaling
-- **Secure**: Data is encrypted with the client secret, making it tamper-proof
+- **Tamper-proof**: JWT signature prevents modification, encryption prevents reading
 - **Stateless**: Each request is independent, reducing infrastructure complexity
+
+The flow works as follows:
+1. **JWT Creation**: User data is encoded as JWT with standard claims and custom Heroku OAuth data
+2. **Encryption**: The JWT is encrypted using AES-256-GCM with the client secret as the key
+3. **Cookie Storage**: The encrypted JWT is stored in a secure HTTP-only cookie
+4. **Decryption**: On each request, the cookie is decrypted to reveal the JWT
+5. **Validation**: The JWT signature is verified and standard claims are validated
+6. **Data Access**: User information is extracted directly from JWT claims
 
 ### Security Features
 

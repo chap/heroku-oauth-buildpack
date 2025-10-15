@@ -1,0 +1,20 @@
+{
+  "proxy": [
+    {
+      "path": "/admin*",
+      "plugins": [
+        {
+          "source": "github.com/chap/heroku-oauth-buildpack"
+        }
+      ]
+    },
+    {
+      "path": "/madmin*",
+      "plugins": [
+        {
+          "source": "github.com/chap/heroku-oauth-buildpack"
+        }
+      ]
+    }
+  ]
+}

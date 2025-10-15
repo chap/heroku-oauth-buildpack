@@ -4,6 +4,7 @@
 
 # Generated configuration files
 *.json
+!app.json
 
 # Temporary files
 tmp/
