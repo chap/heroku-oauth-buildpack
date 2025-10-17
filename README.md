@@ -36,7 +36,8 @@ Rebuild app and make a test request.
 
 ## Options
 
-Restrict authentication to an email address domain:
+Restrict authentication to an email address domain
+
 ```json
 {
   "proxy": [{
@@ -59,20 +60,24 @@ Use a different file for configuration
 $ heroku config:set HEROKU_MANIFEST_FILENAME=./deploy/heroku.yaml
 ```
 
+Restrict all paths
+
+```json
+{
+  "proxy": [{
+    "path": "/*",
+    "plugins": [
+      {
+        "source": "github.com/chap/heroku-oauth-buildpack"
+      }
+    ]
+  }]
+}
+```
+
 ## App Integration
 
 Heroku token is stored as an encrypted JWT in a cookie. It can be read by a downstream client using `HEROKU_OAUTH_SECRET`.
-
-The JWT follows the [RFC 7519](https://datatracker.ietf.org/doc/html/rfc7519) standard and includes the following standard claims:
-
-- **iss** (Issuer): `"heroku-oauth-buildpack"` - identifies the principal that issued the JWT
-- **sub** (Subject): User ID - identifies the subject of the JWT (the authenticated user)
-- **aud** (Audience): `"heroku-oauth-app"` - identifies the recipients that the JWT is intended for
-- **exp** (Expiration Time): Unix timestamp - identifies the expiration time on or after which the JWT MUST NOT be accepted
-- **iat** (Issued At): Unix timestamp - identifies the time at which the JWT was issued
-- **jti** (JWT ID): Session nonce - provides a unique identifier for the JWT
-
-Additional custom claims include the Heroku OAuth access token, refresh token, user email, and team information.
 
 Minimal webserver accessing user info:
 
@@ -114,7 +119,7 @@ Configure setup
 
 - `HEROKU_OAUTH_ID`: Your Heroku OAuth application client ID (required)
 - `HEROKU_OAUTH_SECRET`: Your Heroku OAuth application client secret (required)
-- `HEROKU_MANIFEST_FILENAME`: Path to configuration file (default: .heroku/app.yaml)
+- `HEROKU_MANIFEST_FILENAME`: Path to configuration file (default: app.json)
 
 ## How It Works
 

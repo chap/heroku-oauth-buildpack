@@ -478,75 +478,79 @@ func createEncryptedStateCookie(t *testing.T, state, clientSecret string) *http.
 	}
 }
 
-// Helper function to create an encrypted token cookie for testing
-func createEncryptedTokenCookie(t *testing.T, tokenData *heroku.TokenData, clientSecret string) *http.Cookie {
-	encryptedToken, err := heroku.EncryptTokenData(tokenData, clientSecret)
+// Helper function to create an encrypted JWT cookie for testing
+func createEncryptedJWTCookie(t *testing.T, claims map[string]interface{}, clientSecret string) *http.Cookie {
+	encryptedToken, err := heroku.EncryptJWTClaims(claims, clientSecret)
 	if err != nil {
-		t.Fatalf("Failed to encrypt token data: %v", err)
+		t.Fatalf("Failed to encrypt JWT claims: %v", err)
 	}
 
 	return &http.Cookie{
-		Name:  "heroku_oauth_token",
+		Name:  "heroku_oauth_jwt",
 		Value: encryptedToken,
 	}
 }
 
-func TestTokenDataEncryptionDecryption(t *testing.T) {
-	tokenData := &heroku.TokenData{
-		AccessToken:  "HRKU-01234567-89ab-cdef-0123-456789abcdef",
-		TokenType:    "Bearer",
-		ExpiresIn:    28799,
-		RefreshToken: "01234567-89ab-cdef-0123-456789abcdef",
-		UserID:       "01234567-89ab-cdef-0123-456789abcdef",
-		SessionNonce: "2bf3ec81701ec291",
-		Email:        "test@example.com",
-		Teams:        "team1,team2",
-		ExpiresAt:    1234567890,
+func TestJWTClaimsEncryptionDecryption(t *testing.T) {
+	claims := map[string]interface{}{
+		"iss":                "heroku-oauth",
+		"sub":                "01234567-89ab-cdef-0123-456789abcdef",
+		"aud":                "heroku-oauth-app",
+		"exp":                int64(1234567890),
+		"iat":                int64(1234567890 - 3600),
+		"jti":                "2bf3ec81701ec291",
+		"access_token":       "HRKU-01234567-89ab-cdef-0123-456789abcdef",
+		"token_type":         "Bearer",
+		"expires_in":         28799,
+		"refresh_token":      "01234567-89ab-cdef-0123-456789abcdef",
+		"email":              "test@example.com",
+		"teams":              "team1,team2",
+		"refresh_expires_at": int64(1234567890 + (30 * 24 * 60 * 60)),
 	}
 
 	clientSecret := "test-client-secret"
 
-	encrypted, err := heroku.EncryptTokenData(tokenData, clientSecret)
+	encrypted, err := heroku.EncryptJWTClaims(claims, clientSecret)
 	if err != nil {
 		t.Fatalf("Encryption failed: %v", err)
 	}
 
-	decrypted, err := heroku.DecryptTokenData(encrypted, clientSecret)
+	decrypted, err := heroku.DecryptJWTClaims(encrypted, clientSecret)
 	if err != nil {
 		t.Fatalf("Decryption failed: %v", err)
 	}
 
 	// Verify all fields match
-	if decrypted.AccessToken != tokenData.AccessToken {
-		t.Errorf("AccessToken mismatch: expected %s, got %s", tokenData.AccessToken, decrypted.AccessToken)
+	if decrypted["access_token"] != claims["access_token"] {
+		t.Errorf("AccessToken mismatch: expected %s, got %s", claims["access_token"], decrypted["access_token"])
 	}
-	if decrypted.TokenType != tokenData.TokenType {
-		t.Errorf("TokenType mismatch: expected %s, got %s", tokenData.TokenType, decrypted.TokenType)
+	if decrypted["token_type"] != claims["token_type"] {
+		t.Errorf("TokenType mismatch: expected %s, got %s", claims["token_type"], decrypted["token_type"])
 	}
-	if decrypted.ExpiresIn != tokenData.ExpiresIn {
-		t.Errorf("ExpiresIn mismatch: expected %d, got %d", tokenData.ExpiresIn, decrypted.ExpiresIn)
+	if decrypted["expires_in"] != claims["expires_in"] {
+		t.Errorf("ExpiresIn mismatch: expected %v, got %v", claims["expires_in"], decrypted["expires_in"])
 	}
-	if decrypted.RefreshToken != tokenData.RefreshToken {
-		t.Errorf("RefreshToken mismatch: expected %s, got %s", tokenData.RefreshToken, decrypted.RefreshToken)
+	if decrypted["refresh_token"] != claims["refresh_token"] {
+		t.Errorf("RefreshToken mismatch: expected %s, got %s", claims["refresh_token"], decrypted["refresh_token"])
 	}
-	if decrypted.UserID != tokenData.UserID {
-		t.Errorf("UserID mismatch: expected %s, got %s", tokenData.UserID, decrypted.UserID)
+	if decrypted["sub"] != claims["sub"] {
+		t.Errorf("UserID mismatch: expected %s, got %s", claims["sub"], decrypted["sub"])
 	}
-	if decrypted.SessionNonce != tokenData.SessionNonce {
-		t.Errorf("SessionNonce mismatch: expected %s, got %s", tokenData.SessionNonce, decrypted.SessionNonce)
+	if decrypted["jti"] != claims["jti"] {
+		t.Errorf("SessionNonce mismatch: expected %s, got %s", claims["jti"], decrypted["jti"])
 	}
-	if decrypted.Email != tokenData.Email {
-		t.Errorf("Email mismatch: expected %s, got %s", tokenData.Email, decrypted.Email)
+	if decrypted["email"] != claims["email"] {
+		t.Errorf("Email mismatch: expected %s, got %s", claims["email"], decrypted["email"])
 	}
-	if decrypted.Teams != tokenData.Teams {
-		t.Errorf("Teams mismatch: expected %s, got %s", tokenData.Teams, decrypted.Teams)
+	if decrypted["teams"] != claims["teams"] {
+		t.Errorf("Teams mismatch: expected %s, got %s", claims["teams"], decrypted["teams"])
 	}
-	if decrypted.ExpiresAt != tokenData.ExpiresAt {
-		t.Errorf("ExpiresAt mismatch: expected %d, got %d", tokenData.ExpiresAt, decrypted.ExpiresAt)
+	if decrypted["exp"] != claims["exp"] {
+		t.Errorf("ExpiresAt mismatch: expected %v, got %v", claims["exp"], decrypted["exp"])
 	}
 }
 
-func TestAuthenticatedRequestWithEncryptedToken(t *testing.T) {
+func TestAuthenticatedRequestWithEncryptedJWT(t *testing.T) {
 	cfg := heroku.CreateConfig()
 	cfg.ClientID = "test-client-id"
 	cfg.ClientSecret = "test-client-secret"
@@ -570,22 +574,27 @@ func TestAuthenticatedRequestWithEncryptedToken(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Create token data
-	tokenData := &heroku.TokenData{
-		AccessToken:  "HRKU-01234567-89ab-cdef-0123-456789abcdef",
-		TokenType:    "Bearer",
-		ExpiresIn:    3600,
-		RefreshToken: "01234567-89ab-cdef-0123-456789abcdef",
-		UserID:       "01234567-89ab-cdef-0123-456789abcdef",
-		SessionNonce: "2bf3ec81701ec291",
-		Email:        "test@example.com",
-		Teams:        "team1,team2",
-		ExpiresAt:    time.Now().Unix() + 3600, // 1 hour from now
+	// Create JWT claims
+	now := time.Now().Unix()
+	claims := map[string]interface{}{
+		"iss":                "heroku-oauth",
+		"sub":                "01234567-89ab-cdef-0123-456789abcdef",
+		"aud":                "heroku-oauth-app",
+		"exp":                now + 3600, // 1 hour from now
+		"iat":                now,
+		"jti":                "2bf3ec81701ec291",
+		"access_token":       "HRKU-01234567-89ab-cdef-0123-456789abcdef",
+		"token_type":         "Bearer",
+		"expires_in":         3600,
+		"refresh_token":      "01234567-89ab-cdef-0123-456789abcdef",
+		"email":              "test@example.com",
+		"teams":              "team1,team2",
+		"refresh_expires_at": now + (30 * 24 * 60 * 60),
 	}
 
-	// Create request with encrypted token cookie
+	// Create request with encrypted JWT cookie
 	req := httptest.NewRequest("GET", "/test", nil)
-	req.AddCookie(createEncryptedTokenCookie(t, tokenData, "test-client-secret"))
+	req.AddCookie(createEncryptedJWTCookie(t, claims, "test-client-secret"))
 
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, req)
@@ -644,26 +653,30 @@ func TestTokenRefreshSuccess(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Create expired token data with valid refresh token
-	expiredTime := time.Now().Unix() - 3600                     // 1 hour ago
-	refreshExpiresAt := time.Now().Unix() + (30 * 24 * 60 * 60) // 30 days from now
+	// Create expired JWT claims with valid refresh token
+	now := time.Now().Unix()
+	expiredTime := now - 3600                     // 1 hour ago
+	refreshExpiresAt := now + (30 * 24 * 60 * 60) // 30 days from now
 
-	tokenData := &heroku.TokenData{
-		AccessToken:      "HRKU-expired-access-token",
-		TokenType:        "Bearer",
-		ExpiresIn:        3600,
-		RefreshToken:     "valid-refresh-token",
-		UserID:           "user-123",
-		SessionNonce:     "session-nonce",
-		Email:            "test@example.com",
-		Teams:            "team1,team2",
-		ExpiresAt:        expiredTime,
-		RefreshExpiresAt: refreshExpiresAt,
+	claims := map[string]interface{}{
+		"iss":                "heroku-oauth",
+		"sub":                "user-123",
+		"aud":                "heroku-oauth-app",
+		"exp":                expiredTime,
+		"iat":                expiredTime - 3600,
+		"jti":                "session-nonce",
+		"access_token":       "HRKU-expired-access-token",
+		"token_type":         "Bearer",
+		"expires_in":         3600,
+		"refresh_token":      "valid-refresh-token",
+		"email":              "test@example.com",
+		"teams":              "team1,team2",
+		"refresh_expires_at": refreshExpiresAt,
 	}
 
-	// Create request with expired token cookie
+	// Create request with expired JWT cookie
 	req := httptest.NewRequest("GET", "/test", nil)
-	req.AddCookie(createEncryptedTokenCookie(t, tokenData, "test-client-secret"))
+	req.AddCookie(createEncryptedJWTCookie(t, claims, "test-client-secret"))
 
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, req)
@@ -689,17 +702,17 @@ func TestTokenRefreshSuccess(t *testing.T) {
 		t.Errorf("expected teams header team1,team2, got %s", teamsHeader)
 	}
 
-	// Should update the token cookie with new access token
+	// Should update the JWT cookie with new access token
 	cookies := recorder.Header()["Set-Cookie"]
 	tokenCookieUpdated := false
 	for _, cookie := range cookies {
-		if strings.Contains(cookie, "heroku_oauth_token") {
+		if strings.Contains(cookie, "heroku_oauth_jwt") {
 			tokenCookieUpdated = true
 			break
 		}
 	}
 	if !tokenCookieUpdated {
-		t.Error("expected heroku_oauth_token cookie to be updated")
+		t.Error("expected heroku_oauth_jwt cookie to be updated")
 	}
 }
 
@@ -725,26 +738,30 @@ func TestTokenRefreshFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Create expired token data with valid refresh token
-	expiredTime := time.Now().Unix() - 3600                     // 1 hour ago
-	refreshExpiresAt := time.Now().Unix() + (30 * 24 * 60 * 60) // 30 days from now
+	// Create expired JWT claims with invalid refresh token
+	now := time.Now().Unix()
+	expiredTime := now - 3600                     // 1 hour ago
+	refreshExpiresAt := now + (30 * 24 * 60 * 60) // 30 days from now
 
-	tokenData := &heroku.TokenData{
-		AccessToken:      "HRKU-expired-access-token",
-		TokenType:        "Bearer",
-		ExpiresIn:        3600,
-		RefreshToken:     "invalid-refresh-token",
-		UserID:           "user-123",
-		SessionNonce:     "session-nonce",
-		Email:            "test@example.com",
-		Teams:            "team1,team2",
-		ExpiresAt:        expiredTime,
-		RefreshExpiresAt: refreshExpiresAt,
+	claims := map[string]interface{}{
+		"iss":                "heroku-oauth",
+		"sub":                "user-123",
+		"aud":                "heroku-oauth-app",
+		"exp":                expiredTime,
+		"iat":                expiredTime - 3600,
+		"jti":                "session-nonce",
+		"access_token":       "HRKU-expired-access-token",
+		"token_type":         "Bearer",
+		"expires_in":         3600,
+		"refresh_token":      "invalid-refresh-token",
+		"email":              "test@example.com",
+		"teams":              "team1,team2",
+		"refresh_expires_at": refreshExpiresAt,
 	}
 
-	// Create request with expired token cookie
+	// Create request with expired JWT cookie
 	req := httptest.NewRequest("GET", "/test", nil)
-	req.AddCookie(createEncryptedTokenCookie(t, tokenData, "test-client-secret"))
+	req.AddCookie(createEncryptedJWTCookie(t, claims, "test-client-secret"))
 
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, req)
@@ -763,7 +780,7 @@ func TestTokenRefreshFailure(t *testing.T) {
 	cookies := recorder.Header()["Set-Cookie"]
 	clearedCookies := 0
 	for _, cookie := range cookies {
-		if strings.Contains(cookie, "heroku_oauth_token") && (strings.Contains(cookie, "Max-Age=-1") || strings.Contains(cookie, "Max-Age=0")) {
+		if strings.Contains(cookie, "heroku_oauth_jwt") && (strings.Contains(cookie, "Max-Age=-1") || strings.Contains(cookie, "Max-Age=0")) {
 			clearedCookies++
 		}
 		if strings.Contains(cookie, "heroku_oauth_email") && (strings.Contains(cookie, "Max-Age=-1") || strings.Contains(cookie, "Max-Age=0")) {
@@ -793,26 +810,30 @@ func TestTokenRefreshWithExpiredRefreshToken(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Create expired token data with expired refresh token
-	expiredTime := time.Now().Unix() - 3600        // 1 hour ago
-	expiredRefreshTime := time.Now().Unix() - 3600 // 1 hour ago
+	// Create expired JWT claims with expired refresh token
+	now := time.Now().Unix()
+	expiredTime := now - 3600        // 1 hour ago
+	expiredRefreshTime := now - 3600 // 1 hour ago
 
-	tokenData := &heroku.TokenData{
-		AccessToken:      "HRKU-expired-access-token",
-		TokenType:        "Bearer",
-		ExpiresIn:        3600,
-		RefreshToken:     "expired-refresh-token",
-		UserID:           "user-123",
-		SessionNonce:     "session-nonce",
-		Email:            "test@example.com",
-		Teams:            "team1,team2",
-		ExpiresAt:        expiredTime,
-		RefreshExpiresAt: expiredRefreshTime,
+	claims := map[string]interface{}{
+		"iss":                "heroku-oauth",
+		"sub":                "user-123",
+		"aud":                "heroku-oauth-app",
+		"exp":                expiredTime,
+		"iat":                expiredTime - 3600,
+		"jti":                "session-nonce",
+		"access_token":       "HRKU-expired-access-token",
+		"token_type":         "Bearer",
+		"expires_in":         3600,
+		"refresh_token":      "expired-refresh-token",
+		"email":              "test@example.com",
+		"teams":              "team1,team2",
+		"refresh_expires_at": expiredRefreshTime,
 	}
 
-	// Create request with expired token cookie
+	// Create request with expired JWT cookie
 	req := httptest.NewRequest("GET", "/test", nil)
-	req.AddCookie(createEncryptedTokenCookie(t, tokenData, "test-client-secret"))
+	req.AddCookie(createEncryptedJWTCookie(t, claims, "test-client-secret"))
 
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, req)
@@ -843,25 +864,29 @@ func TestTokenRefreshWithoutRefreshToken(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Create expired token data without refresh token
-	expiredTime := time.Now().Unix() - 3600 // 1 hour ago
+	// Create expired JWT claims without refresh token
+	now := time.Now().Unix()
+	expiredTime := now - 3600 // 1 hour ago
 
-	tokenData := &heroku.TokenData{
-		AccessToken:      "HRKU-expired-access-token",
-		TokenType:        "Bearer",
-		ExpiresIn:        3600,
-		RefreshToken:     "", // No refresh token
-		UserID:           "user-123",
-		SessionNonce:     "session-nonce",
-		Email:            "test@example.com",
-		Teams:            "team1,team2",
-		ExpiresAt:        expiredTime,
-		RefreshExpiresAt: 0,
+	claims := map[string]interface{}{
+		"iss":                "heroku-oauth",
+		"sub":                "user-123",
+		"aud":                "heroku-oauth-app",
+		"exp":                expiredTime,
+		"iat":                expiredTime - 3600,
+		"jti":                "session-nonce",
+		"access_token":       "HRKU-expired-access-token",
+		"token_type":         "Bearer",
+		"expires_in":         3600,
+		"refresh_token":      "", // No refresh token
+		"email":              "test@example.com",
+		"teams":              "team1,team2",
+		"refresh_expires_at": int64(0),
 	}
 
-	// Create request with expired token cookie
+	// Create request with expired JWT cookie
 	req := httptest.NewRequest("GET", "/test", nil)
-	req.AddCookie(createEncryptedTokenCookie(t, tokenData, "test-client-secret"))
+	req.AddCookie(createEncryptedJWTCookie(t, claims, "test-client-secret"))
 
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, req)
@@ -877,61 +902,64 @@ func TestTokenRefreshWithoutRefreshToken(t *testing.T) {
 	}
 }
 
-func TestTokenDataWithRefreshExpiration(t *testing.T) {
-	tokenData := &heroku.TokenData{
-		AccessToken:      "HRKU-01234567-89ab-cdef-0123-456789abcdef",
-		TokenType:        "Bearer",
-		ExpiresIn:        3600,
-		RefreshToken:     "01234567-89ab-cdef-0123-456789abcdef",
-		UserID:           "01234567-89ab-cdef-0123-456789abcdef",
-		SessionNonce:     "2bf3ec81701ec291",
-		Email:            "test@example.com",
-		Teams:            "team1,team2",
-		ExpiresAt:        1234567890,
-		RefreshExpiresAt: 1234567890 + (30 * 24 * 60 * 60), // 30 days later
+func TestJWTClaimsWithRefreshExpiration(t *testing.T) {
+	claims := map[string]interface{}{
+		"iss":                "heroku-oauth",
+		"sub":                "01234567-89ab-cdef-0123-456789abcdef",
+		"aud":                "heroku-oauth-app",
+		"exp":                int64(1234567890),
+		"iat":                int64(1234567890 - 3600),
+		"jti":                "2bf3ec81701ec291",
+		"access_token":       "HRKU-01234567-89ab-cdef-0123-456789abcdef",
+		"token_type":         "Bearer",
+		"expires_in":         3600,
+		"refresh_token":      "01234567-89ab-cdef-0123-456789abcdef",
+		"email":              "test@example.com",
+		"teams":              "team1,team2",
+		"refresh_expires_at": int64(1234567890 + (30 * 24 * 60 * 60)), // 30 days later
 	}
 
 	clientSecret := "test-client-secret"
 
-	encrypted, err := heroku.EncryptTokenData(tokenData, clientSecret)
+	encrypted, err := heroku.EncryptJWTClaims(claims, clientSecret)
 	if err != nil {
 		t.Fatalf("Encryption failed: %v", err)
 	}
 
-	decrypted, err := heroku.DecryptTokenData(encrypted, clientSecret)
+	decrypted, err := heroku.DecryptJWTClaims(encrypted, clientSecret)
 	if err != nil {
 		t.Fatalf("Decryption failed: %v", err)
 	}
 
-	// Verify all fields match including new refresh expiration field
-	if decrypted.AccessToken != tokenData.AccessToken {
-		t.Errorf("AccessToken mismatch: expected %s, got %s", tokenData.AccessToken, decrypted.AccessToken)
+	// Verify all fields match including refresh expiration field
+	if decrypted["access_token"] != claims["access_token"] {
+		t.Errorf("AccessToken mismatch: expected %s, got %s", claims["access_token"], decrypted["access_token"])
 	}
-	if decrypted.TokenType != tokenData.TokenType {
-		t.Errorf("TokenType mismatch: expected %s, got %s", tokenData.TokenType, decrypted.TokenType)
+	if decrypted["token_type"] != claims["token_type"] {
+		t.Errorf("TokenType mismatch: expected %s, got %s", claims["token_type"], decrypted["token_type"])
 	}
-	if decrypted.ExpiresIn != tokenData.ExpiresIn {
-		t.Errorf("ExpiresIn mismatch: expected %d, got %d", tokenData.ExpiresIn, decrypted.ExpiresIn)
+	if decrypted["expires_in"] != claims["expires_in"] {
+		t.Errorf("ExpiresIn mismatch: expected %v, got %v", claims["expires_in"], decrypted["expires_in"])
 	}
-	if decrypted.RefreshToken != tokenData.RefreshToken {
-		t.Errorf("RefreshToken mismatch: expected %s, got %s", tokenData.RefreshToken, decrypted.RefreshToken)
+	if decrypted["refresh_token"] != claims["refresh_token"] {
+		t.Errorf("RefreshToken mismatch: expected %s, got %s", claims["refresh_token"], decrypted["refresh_token"])
 	}
-	if decrypted.UserID != tokenData.UserID {
-		t.Errorf("UserID mismatch: expected %s, got %s", tokenData.UserID, decrypted.UserID)
+	if decrypted["sub"] != claims["sub"] {
+		t.Errorf("UserID mismatch: expected %s, got %s", claims["sub"], decrypted["sub"])
 	}
-	if decrypted.SessionNonce != tokenData.SessionNonce {
-		t.Errorf("SessionNonce mismatch: expected %s, got %s", tokenData.SessionNonce, decrypted.SessionNonce)
+	if decrypted["jti"] != claims["jti"] {
+		t.Errorf("SessionNonce mismatch: expected %s, got %s", claims["jti"], decrypted["jti"])
 	}
-	if decrypted.Email != tokenData.Email {
-		t.Errorf("Email mismatch: expected %s, got %s", tokenData.Email, decrypted.Email)
+	if decrypted["email"] != claims["email"] {
+		t.Errorf("Email mismatch: expected %s, got %s", claims["email"], decrypted["email"])
 	}
-	if decrypted.Teams != tokenData.Teams {
-		t.Errorf("Teams mismatch: expected %s, got %s", tokenData.Teams, decrypted.Teams)
+	if decrypted["teams"] != claims["teams"] {
+		t.Errorf("Teams mismatch: expected %s, got %s", claims["teams"], decrypted["teams"])
 	}
-	if decrypted.ExpiresAt != tokenData.ExpiresAt {
-		t.Errorf("ExpiresAt mismatch: expected %d, got %d", tokenData.ExpiresAt, decrypted.ExpiresAt)
+	if decrypted["exp"] != claims["exp"] {
+		t.Errorf("ExpiresAt mismatch: expected %v, got %v", claims["exp"], decrypted["exp"])
 	}
-	if decrypted.RefreshExpiresAt != tokenData.RefreshExpiresAt {
-		t.Errorf("RefreshExpiresAt mismatch: expected %d, got %d", tokenData.RefreshExpiresAt, decrypted.RefreshExpiresAt)
+	if decrypted["refresh_expires_at"] != claims["refresh_expires_at"] {
+		t.Errorf("RefreshExpiresAt mismatch: expected %v, got %v", claims["refresh_expires_at"], decrypted["refresh_expires_at"])
 	}
 }
