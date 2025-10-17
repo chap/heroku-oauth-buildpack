@@ -1,23 +1,26 @@
 # Heroku OAuth Buildpack
 
-Adds Heroku OAuth in front of an app.
+Heroku OAuth in front of an app.
 
 ## Quickstart
 
-1. Install buildpack (classic only for now)
+1. Install buildpack
 
 ```term
 $ heroku buildpacks:add https://heroku-oauth-bp-staging-2f042de3e200.herokuapp.com/buildpack/v1alpha1.tgz -a <my-app>
+
+# project.toml
+[[io.buildpacks.group]]
+uri = "https://heroku-oauth-bp-staging-2f042de3e200.herokuapp.com/buildpack/v1alpha1.tgz"
 ```
 
 
 2. Configure protected paths in `app.json`
 
 ```json
-# app.json
 {
   "proxy": [{
-    "path": "/admin*",
+    "path": "/auth*",
     "plugins": [
       {
         "source": "github.com/chap/heroku-oauth-buildpack"
@@ -42,12 +45,12 @@ Restrict authentication to an email address domain
 ```json
 {
   "proxy": [{
-    "path": "/admin*",
+    "path": "/auth*",
     "plugins": [
       {
         "source": "github.com/chap/heroku-oauth-buildpack",
         "config": {
-          "domain": "heroku.com"
+          "domain": "<my-company.com>"
         }
       }
     ]
@@ -58,7 +61,7 @@ Restrict authentication to an email address domain
 Use a different file for configuration
 
 ```term
-$ heroku config:set HEROKU_MANIFEST_FILENAME=./deploy/heroku.yaml
+$ heroku config:set HEROKU_MANIFEST_FILENAME=./.heroku/app.yaml
 ```
 
 Restrict all paths
