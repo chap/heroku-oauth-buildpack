@@ -13,8 +13,9 @@ $ heroku buildpacks:add https://heroku-oauth-bp-staging-2f042de3e200.herokuapp.c
 
 2. Configure protected paths in `app.json`
 
-```term
-echo '{
+```json
+# app.json
+{
   "proxy": [{
     "path": "/admin*",
     "plugins": [
@@ -23,7 +24,7 @@ echo '{
       }
     ]
   }]
-}' > app.json
+}
 ```
 
 3. [Create OAuth Client](https://dashboard.heroku.com/account/applications/clients/new) and copy variables to app
@@ -32,7 +33,7 @@ echo '{
 $ heroku config:add HEROKU_OAUTH_ID=<id> HEROKU_OAUTH_SECRET=<secret> -a <my-app>
 ```
 
-Rebuild app and make a test request.
+4. Rebuild app and make a test request.
 
 ## Options
 
@@ -77,7 +78,7 @@ Restrict all paths
 
 ## App Integration
 
-Heroku token is stored as an encrypted JWT in a cookie. It can be read by a downstream client using `HEROKU_OAUTH_SECRET`.
+Heroku token is stored as an encrypted [JSON Web Token](https://www.jwt.io/introduction#what-is-json-web-token-structure) stored in a cookie. It can be read by a upstream client using `HEROKU_OAUTH_SECRET`.
 
 Minimal webserver accessing user info:
 
@@ -98,10 +99,10 @@ get '/admin' do
   cipher.auth_tag = tag
   cipher.decrypt
   jwt             = cipher.update(ciphertext) + cipher.final
-  parts           = jwt.split('.')
-  user_info       = JSON.parse(Base64.urlsafe_decode64(parts[1]))
+  jwt_payload     = jwt.split('.')[1]
+  jwt_payload     = JSON.parse(Base64.urlsafe_decode64(jwt_payload))
 
-  "Hello #{user_info['email']}"
+  "Hello #{jwt_payload['email']}"
 end
 ```
 
