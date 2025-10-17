@@ -81,7 +81,7 @@ Restrict all paths
 
 ## App Integration
 
-Heroku token is stored as an encrypted [JSON Web Token](https://www.jwt.io/introduction#what-is-json-web-token-structure) stored in a cookie. It can be decrypted by a upstream service with `HEROKU_OAUTH_SECRET`.
+Heroku token is stored as an encrypted [JSON Web Token](https://www.jwt.io/introduction#what-is-json-web-token-structure) in a cookie. It can be decrypted by an upstream service with `HEROKU_OAUTH_SECRET`.
 
 Minimal webserver accessing user info:
 
@@ -92,7 +92,8 @@ require 'base64'
 require 'json'
 
 get '/auth' do
-  ciphertext = Base64.urlsafe_decode64(request.cookies['heroku_oauth_jwt'])
+  cookie          = request.cookies['heroku_oauth_jwt']
+  ciphertext      = Base64.urlsafe_decode64(cookie)
   iv              = ciphertext[0, 12]
   auth_tag        = ciphertext[-16..-1]
   ciphertext      = ciphertext[12...-16]
@@ -105,7 +106,7 @@ get '/auth' do
   jwt_payload     = jwt.split('.')[1]
   jwt_payload     = JSON.parse(Base64.urlsafe_decode64(jwt_payload))
 
-  "Hello #{jwt_payload['email']}"
+  "Hello #{jwt_payload.email}"
 end
 ```
 
