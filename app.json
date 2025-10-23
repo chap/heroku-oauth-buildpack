@@ -1,4 +1,5 @@
 {
+  "name": "heroku-oauth-test-development",
   "proxy": [
     {
       "path": "/admin*",
