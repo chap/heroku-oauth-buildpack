@@ -24,7 +24,7 @@
   "stack": "heroku-24",
   "stage": "development",
   "proxy": [{
-    "path": "/admin",
+    "path": "/auth*",
     "plugins": [
       {
         "source": "github.com/chap/heroku-oauth-buildpack"

@@ -96,34 +96,26 @@ def decrypt_heroku_jwt(encrypted_data)
   decode_jwt(jwt_token)
 end
 
-get '/admin' do
-  result = "Hi admin"
+get '/auth' do
   begin
-    encrypted_token = request.cookies['heroku_oauth_jwt']
-    claims = decrypt_heroku_jwt(encrypted_token)
-    result += " - #{claims['email']}" if claims
-  rescue => e
-    puts "Error decrypting heroku JWT: #{e.message}"
+    cookie          = request.cookies['heroku_oauth_jwt']
+    ciphertext      = Base64.urlsafe_decode64(cookie)
+    iv              = ciphertext[0, 12]
+    auth_tag        = ciphertext[-16..-1]
+    ciphertext      = ciphertext[12...-16]
+    cipher          = OpenSSL::Cipher.new('aes-256-gcm')
+    cipher.key      = OpenSSL::Digest::SHA256.digest(ENV['HEROKU_OAUTH_SECRET'])
+    cipher.iv       = iv
+    cipher.auth_tag = auth_tag
+    cipher.decrypt
+    jwt             = cipher.update(ciphertext) + cipher.final
+    jwt_payload     = jwt.split('.')[1]
+    jwt_payload     = JSON.parse(Base64.urlsafe_decode64(jwt_payload))
+
+  "Hello #{jwt_payload.email}"
+  rescue
+    "Hello admin"
   end
-  
-  result
-end
-
-get '/madmin' do
-  ciphertext = Base64.urlsafe_decode64(request.cookies['heroku_oauth_jwt'])
-  nonce           = ciphertext[0, 12]
-  tag             = ciphertext[-16..-1]
-  ciphertext      = ciphertext[12...-16]
-  cipher          = OpenSSL::Cipher.new('aes-256-gcm')
-  cipher.key      = OpenSSL::Digest::SHA256.digest(ENV['HEROKU_OAUTH_SECRET'])
-  cipher.iv       = nonce
-  cipher.auth_tag = tag
-  cipher.decrypt
-  jwt             = cipher.update(ciphertext) + cipher.final
-  parts           = jwt.split('.')
-  user_info       = JSON.parse(Base64.urlsafe_decode64(parts[1]))
-
-  "Hello #{user_info['email']}"
 end
 
 # Start the server
