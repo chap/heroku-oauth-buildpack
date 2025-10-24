@@ -2,9 +2,6 @@
 # bin/dyno-proxy
 # dyno-proxy
 
-# Generated configuration files
-*.json
-!app.json
 
 # Temporary files
 tmp/

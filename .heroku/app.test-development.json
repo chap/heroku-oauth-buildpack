@@ -12,7 +12,7 @@
     "web": {
       "quantity": 1,
       "size": "Eco"
-      
+
     }
   },
   "env": {
@@ -24,7 +24,7 @@
   "stack": "heroku-24",
   "stage": "development",
   "proxy": [{
-    "path": "/admin*",
+    "path": "/admin",
     "plugins": [
       {
         "source": "github.com/chap/heroku-oauth-buildpack"
