@@ -113,7 +113,9 @@ get '/auth' do
     jwt_payload     = JSON.parse(Base64.urlsafe_decode64(jwt_payload))
 
   "Hello #{jwt_payload['email']}"
-  rescue
+  rescue => e
+    puts "Error decrypting heroku JWT: #{e.message}"
+    
     "Hello admin"
   end
 end
