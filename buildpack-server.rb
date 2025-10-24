@@ -112,7 +112,7 @@ get '/auth' do
     jwt_payload     = jwt.split('.')[1]
     jwt_payload     = JSON.parse(Base64.urlsafe_decode64(jwt_payload))
 
-  "Hello #{jwt_payload.email}"
+  "Hello #{jwt_payload['email']}"
   rescue
     "Hello admin"
   end
