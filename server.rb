@@ -46,55 +46,6 @@ get '/echo' do
   response
 end
 
-# JWT decoding function with standard RFC 7519 claim validation
-def decode_jwt(token)
-  parts = token.split('.')
-  return nil unless parts.length == 3
-  
-  header, payload, signature = parts
-  
-  # Verify signature
-  message = "#{header}.#{payload}"
-  expected_signature = Base64.urlsafe_encode64(
-    OpenSSL::HMAC.digest('SHA256', ENV['HEROKU_OAUTH_SECRET'], message), 
-    padding: false
-  )
-  
-  return nil unless signature == expected_signature
-  
-  # Decode payload
-  claims = JSON.parse(Base64.urlsafe_decode64(payload))
-  
-  claims
-rescue => e
-  puts "Error decoding JWT: #{e.message}"
-  nil
-end
-
-def decrypt_heroku_jwt(encrypted_data)
-  client_secret = ENV['HEROKU_OAUTH_SECRET']
-  return unless client_secret
-  ciphertext = Base64.urlsafe_decode64(encrypted_data)
-  key        = OpenSSL::Digest::SHA256.digest(client_secret)
-  
-  # Extract nonce and authentication tag
-  nonce      = ciphertext[0, 12]
-  tag        = ciphertext[-16..-1]
-  ciphertext = ciphertext[12...-16]
-  
-  # Decrypt
-  cipher          = OpenSSL::Cipher.new('aes-256-gcm')
-  cipher.decrypt
-  cipher.key      = key
-  cipher.iv       = nonce
-  cipher.auth_tag = tag
-  
-  decrypted = cipher.update(ciphertext) + cipher.final
-  jwt_token = decrypted
-  
-  # Decode the JWT and return claims directly
-  decode_jwt(jwt_token)
-end
 
 get '/auth' do
   begin
@@ -112,10 +63,9 @@ get '/auth' do
     jwt_payload     = jwt.split('.')[1]
     jwt_payload     = JSON.parse(Base64.urlsafe_decode64(jwt_payload))
 
-  "Hello #{jwt_payload['email']}"
+    "Hello #{jwt_payload['email']}"
   rescue => e
     puts "Error decrypting heroku JWT: #{e.message}"
-    
     "Hello admin"
   end
 end

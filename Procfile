@@ -1,1 +1,1 @@
-web: bundle exec ruby buildpack-server.rb
+web: bundle exec ruby server.rb
