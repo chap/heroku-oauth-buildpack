@@ -51,15 +51,12 @@ get '/auth' do
   begin
     cookie          = request.cookies['heroku_oauth_jwt']
     ciphertext      = Base64.urlsafe_decode64(cookie)
-    iv              = ciphertext[0, 12]
-    auth_tag        = ciphertext[-16..-1]
-    ciphertext      = ciphertext[12...-16]
     cipher          = OpenSSL::Cipher.new('aes-256-gcm')
-    cipher.key      = OpenSSL::Digest::SHA256.digest(ENV['HEROKU_OAUTH_SECRET'])
-    cipher.iv       = iv
-    cipher.auth_tag = auth_tag
     cipher.decrypt
-    jwt             = cipher.update(ciphertext) + cipher.final
+    cipher.key      = OpenSSL::Digest::SHA256.digest(ENV['HEROKU_OAUTH_SECRET'])
+    cipher.iv       = ciphertext[0, 12]
+    cipher.auth_tag = ciphertext[-16..-1]
+    jwt             = cipher.update(ciphertext[12...-16]) + cipher.final
     jwt_payload     = jwt.split('.')[1]
     jwt_payload     = JSON.parse(Base64.urlsafe_decode64(jwt_payload))
 
