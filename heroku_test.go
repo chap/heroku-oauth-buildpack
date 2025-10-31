@@ -1,4 +1,4 @@
-package heroku_test
+package heroku_oauth_buildpack_test
 
 import (
 	"context"
@@ -11,11 +11,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dyno-proxy/plugins/heroku-oauth"
+	heroku_oauth_buildpack "github.com/chap/heroku-oauth-buildpack"
 )
 
 func TestNewWithConfig(t *testing.T) {
-	cfg := heroku.CreateConfig()
+	cfg := heroku_oauth_buildpack.CreateConfig()
 	cfg.ClientID = "test-client-id"
 	cfg.ClientSecret = "test-client-secret"
 	cfg.Scopes = "identity"
@@ -23,7 +23,7 @@ func TestNewWithConfig(t *testing.T) {
 	ctx := context.Background()
 	next := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {})
 
-	handler, err := heroku.New(ctx, next, cfg, "heroku-oauth-plugin")
+	handler, err := heroku_oauth_buildpack.New(ctx, next, cfg, "heroku-oauth-plugin")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,12 +42,12 @@ func TestNewWithEnvironmentVariables(t *testing.T) {
 		os.Unsetenv("HEROKU_OAUTH_SECRET")
 	}()
 
-	cfg := heroku.CreateConfig()
+	cfg := heroku_oauth_buildpack.CreateConfig()
 
 	ctx := context.Background()
 	next := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {})
 
-	handler, err := heroku.New(ctx, next, cfg, "heroku-oauth-plugin")
+	handler, err := heroku_oauth_buildpack.New(ctx, next, cfg, "heroku-oauth-plugin")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,13 +58,13 @@ func TestNewWithEnvironmentVariables(t *testing.T) {
 }
 
 func TestNewWithoutClientID(t *testing.T) {
-	cfg := heroku.CreateConfig()
+	cfg := heroku_oauth_buildpack.CreateConfig()
 	cfg.ClientSecret = "test-client-secret"
 
 	ctx := context.Background()
 	next := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {})
 
-	_, err := heroku.New(ctx, next, cfg, "heroku-oauth-plugin")
+	_, err := heroku_oauth_buildpack.New(ctx, next, cfg, "heroku-oauth-plugin")
 	if err == nil {
 		t.Fatal("expected error for missing client_id")
 	}
@@ -75,13 +75,13 @@ func TestNewWithoutClientID(t *testing.T) {
 }
 
 func TestNewWithoutClientSecret(t *testing.T) {
-	cfg := heroku.CreateConfig()
+	cfg := heroku_oauth_buildpack.CreateConfig()
 	cfg.ClientID = "test-client-id"
 
 	ctx := context.Background()
 	next := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {})
 
-	_, err := heroku.New(ctx, next, cfg, "heroku-oauth-plugin")
+	_, err := heroku_oauth_buildpack.New(ctx, next, cfg, "heroku-oauth-plugin")
 	if err == nil {
 		t.Fatal("expected error for missing client_secret")
 	}
@@ -92,7 +92,7 @@ func TestNewWithoutClientSecret(t *testing.T) {
 }
 
 func TestOAuthInitiation(t *testing.T) {
-	cfg := heroku.CreateConfig()
+	cfg := heroku_oauth_buildpack.CreateConfig()
 	cfg.ClientID = "test-client-id"
 	cfg.ClientSecret = "test-client-secret"
 
@@ -101,7 +101,7 @@ func TestOAuthInitiation(t *testing.T) {
 		t.Error("next handler should not be called during OAuth initiation")
 	})
 
-	handler, err := heroku.New(ctx, next, cfg, "heroku-oauth-plugin")
+	handler, err := heroku_oauth_buildpack.New(ctx, next, cfg, "heroku-oauth-plugin")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -176,7 +176,7 @@ func TestOAuthInitiation(t *testing.T) {
 }
 
 func TestAuthenticatedRequest(t *testing.T) {
-	cfg := heroku.CreateConfig()
+	cfg := heroku_oauth_buildpack.CreateConfig()
 	cfg.ClientID = "test-client-id"
 	cfg.ClientSecret = "test-client-secret"
 
@@ -188,7 +188,7 @@ func TestAuthenticatedRequest(t *testing.T) {
 		rw.Write([]byte("authenticated"))
 	})
 
-	handler, err := heroku.New(ctx, next, cfg, "heroku-oauth-plugin")
+	handler, err := heroku_oauth_buildpack.New(ctx, next, cfg, "heroku-oauth-plugin")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -268,14 +268,14 @@ func TestOAuthCallbackSuccess(t *testing.T) {
 	defer accountServer.Close()
 
 	// Create plugin with mocked endpoints
-	cfg := heroku.CreateConfig()
+	cfg := heroku_oauth_buildpack.CreateConfig()
 	cfg.ClientID = "test-client-id"
 	cfg.ClientSecret = "test-client-secret"
 
 	ctx := context.Background()
 	next := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {})
 
-	handler, err := heroku.NewForTesting(ctx, next, cfg, "heroku-oauth-plugin", tokenServer.URL+"/oauth/token", accountServer.URL+"/account")
+	handler, err := heroku_oauth_buildpack.NewForTesting(ctx, next, cfg, "heroku-oauth-plugin", tokenServer.URL+"/oauth/token", accountServer.URL+"/account")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -314,14 +314,14 @@ func TestOAuthCallbackSuccess(t *testing.T) {
 }
 
 func TestOAuthCallbackWithError(t *testing.T) {
-	cfg := heroku.CreateConfig()
+	cfg := heroku_oauth_buildpack.CreateConfig()
 	cfg.ClientID = "test-client-id"
 	cfg.ClientSecret = "test-client-secret"
 
 	ctx := context.Background()
 	next := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {})
 
-	handler, err := heroku.New(ctx, next, cfg, "heroku-oauth-plugin")
+	handler, err := heroku_oauth_buildpack.New(ctx, next, cfg, "heroku-oauth-plugin")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -348,14 +348,14 @@ func TestOAuthCallbackWithError(t *testing.T) {
 }
 
 func TestOAuthCallbackWithInvalidState(t *testing.T) {
-	cfg := heroku.CreateConfig()
+	cfg := heroku_oauth_buildpack.CreateConfig()
 	cfg.ClientID = "test-client-id"
 	cfg.ClientSecret = "test-client-secret"
 
 	ctx := context.Background()
 	next := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {})
 
-	handler, err := heroku.New(ctx, next, cfg, "heroku-oauth-plugin")
+	handler, err := heroku_oauth_buildpack.New(ctx, next, cfg, "heroku-oauth-plugin")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -388,7 +388,7 @@ func TestOAuthCallbackWithInvalidState(t *testing.T) {
 }
 
 func TestDefaultScopes(t *testing.T) {
-	cfg := heroku.CreateConfig()
+	cfg := heroku_oauth_buildpack.CreateConfig()
 	cfg.ClientID = "test-client-id"
 	cfg.ClientSecret = "test-client-secret"
 	// Don't set scopes, should use default
@@ -396,7 +396,7 @@ func TestDefaultScopes(t *testing.T) {
 	ctx := context.Background()
 	next := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {})
 
-	handler, err := heroku.New(ctx, next, cfg, "heroku-oauth-plugin")
+	handler, err := heroku_oauth_buildpack.New(ctx, next, cfg, "heroku-oauth-plugin")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -427,7 +427,7 @@ func TestDefaultScopes(t *testing.T) {
 }
 
 func TestCustomScopes(t *testing.T) {
-	cfg := heroku.CreateConfig()
+	cfg := heroku_oauth_buildpack.CreateConfig()
 	cfg.ClientID = "test-client-id"
 	cfg.ClientSecret = "test-client-secret"
 	cfg.Scopes = "identity,read"
@@ -435,7 +435,7 @@ func TestCustomScopes(t *testing.T) {
 	ctx := context.Background()
 	next := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {})
 
-	handler, err := heroku.New(ctx, next, cfg, "heroku-oauth-plugin")
+	handler, err := heroku_oauth_buildpack.New(ctx, next, cfg, "heroku-oauth-plugin")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -467,7 +467,7 @@ func TestCustomScopes(t *testing.T) {
 
 // Helper function to create an encrypted state cookie for testing
 func createEncryptedStateCookie(t *testing.T, state, clientSecret string) *http.Cookie {
-	encryptedState, err := heroku.EncryptState(state, clientSecret)
+	encryptedState, err := heroku_oauth_buildpack.EncryptState(state, clientSecret)
 	if err != nil {
 		t.Fatalf("Failed to encrypt state: %v", err)
 	}
@@ -480,7 +480,7 @@ func createEncryptedStateCookie(t *testing.T, state, clientSecret string) *http.
 
 // Helper function to create an encrypted JWT cookie for testing
 func createEncryptedJWTCookie(t *testing.T, claims map[string]interface{}, clientSecret string) *http.Cookie {
-	encryptedToken, err := heroku.EncryptJWTClaims(claims, clientSecret)
+	encryptedToken, err := heroku_oauth_buildpack.EncryptJWTClaims(claims, clientSecret)
 	if err != nil {
 		t.Fatalf("Failed to encrypt JWT claims: %v", err)
 	}
@@ -510,12 +510,12 @@ func TestJWTClaimsEncryptionDecryption(t *testing.T) {
 
 	clientSecret := "test-client-secret"
 
-	encrypted, err := heroku.EncryptJWTClaims(claims, clientSecret)
+	encrypted, err := heroku_oauth_buildpack.EncryptJWTClaims(claims, clientSecret)
 	if err != nil {
 		t.Fatalf("Encryption failed: %v", err)
 	}
 
-	decrypted, err := heroku.DecryptJWTClaims(encrypted, clientSecret)
+	decrypted, err := heroku_oauth_buildpack.DecryptJWTClaims(encrypted, clientSecret)
 	if err != nil {
 		t.Fatalf("Decryption failed: %v", err)
 	}
@@ -551,7 +551,7 @@ func TestJWTClaimsEncryptionDecryption(t *testing.T) {
 }
 
 func TestAuthenticatedRequestWithEncryptedJWT(t *testing.T) {
-	cfg := heroku.CreateConfig()
+	cfg := heroku_oauth_buildpack.CreateConfig()
 	cfg.ClientID = "test-client-id"
 	cfg.ClientSecret = "test-client-secret"
 
@@ -569,7 +569,7 @@ func TestAuthenticatedRequestWithEncryptedJWT(t *testing.T) {
 		}
 	})
 
-	handler, err := heroku.New(ctx, next, cfg, "heroku-oauth-plugin")
+	handler, err := heroku_oauth_buildpack.New(ctx, next, cfg, "heroku-oauth-plugin")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -636,7 +636,7 @@ func TestTokenRefreshSuccess(t *testing.T) {
 	}))
 	defer refreshServer.Close()
 
-	cfg := heroku.CreateConfig()
+	cfg := heroku_oauth_buildpack.CreateConfig()
 	cfg.ClientID = "test-client-id"
 	cfg.ClientSecret = "test-client-secret"
 
@@ -648,7 +648,7 @@ func TestTokenRefreshSuccess(t *testing.T) {
 		rw.Write([]byte("refreshed"))
 	})
 
-	handler, err := heroku.NewForTesting(ctx, next, cfg, "heroku-oauth-plugin", refreshServer.URL+"/oauth/token", "https://api.heroku.com/account")
+	handler, err := heroku_oauth_buildpack.NewForTesting(ctx, next, cfg, "heroku-oauth-plugin", refreshServer.URL+"/oauth/token", "https://api.heroku.com/account")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -724,7 +724,7 @@ func TestTokenRefreshFailure(t *testing.T) {
 	}))
 	defer refreshServer.Close()
 
-	cfg := heroku.CreateConfig()
+	cfg := heroku_oauth_buildpack.CreateConfig()
 	cfg.ClientID = "test-client-id"
 	cfg.ClientSecret = "test-client-secret"
 
@@ -733,7 +733,7 @@ func TestTokenRefreshFailure(t *testing.T) {
 		t.Error("next handler should not be called when refresh fails")
 	})
 
-	handler, err := heroku.NewForTesting(ctx, next, cfg, "heroku-oauth-plugin", refreshServer.URL+"/oauth/token", "https://api.heroku.com/account")
+	handler, err := heroku_oauth_buildpack.NewForTesting(ctx, next, cfg, "heroku-oauth-plugin", refreshServer.URL+"/oauth/token", "https://api.heroku.com/account")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -796,7 +796,7 @@ func TestTokenRefreshFailure(t *testing.T) {
 }
 
 func TestTokenRefreshWithExpiredRefreshToken(t *testing.T) {
-	cfg := heroku.CreateConfig()
+	cfg := heroku_oauth_buildpack.CreateConfig()
 	cfg.ClientID = "test-client-id"
 	cfg.ClientSecret = "test-client-secret"
 
@@ -805,7 +805,7 @@ func TestTokenRefreshWithExpiredRefreshToken(t *testing.T) {
 		t.Error("next handler should not be called when refresh token is expired")
 	})
 
-	handler, err := heroku.New(ctx, next, cfg, "heroku-oauth-plugin")
+	handler, err := heroku_oauth_buildpack.New(ctx, next, cfg, "heroku-oauth-plugin")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -850,7 +850,7 @@ func TestTokenRefreshWithExpiredRefreshToken(t *testing.T) {
 }
 
 func TestTokenRefreshWithoutRefreshToken(t *testing.T) {
-	cfg := heroku.CreateConfig()
+	cfg := heroku_oauth_buildpack.CreateConfig()
 	cfg.ClientID = "test-client-id"
 	cfg.ClientSecret = "test-client-secret"
 
@@ -859,7 +859,7 @@ func TestTokenRefreshWithoutRefreshToken(t *testing.T) {
 		t.Error("next handler should not be called when no refresh token is available")
 	})
 
-	handler, err := heroku.New(ctx, next, cfg, "heroku-oauth-plugin")
+	handler, err := heroku_oauth_buildpack.New(ctx, next, cfg, "heroku-oauth-plugin")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -921,12 +921,12 @@ func TestJWTClaimsWithRefreshExpiration(t *testing.T) {
 
 	clientSecret := "test-client-secret"
 
-	encrypted, err := heroku.EncryptJWTClaims(claims, clientSecret)
+	encrypted, err := heroku_oauth_buildpack.EncryptJWTClaims(claims, clientSecret)
 	if err != nil {
 		t.Fatalf("Encryption failed: %v", err)
 	}
 
-	decrypted, err := heroku.DecryptJWTClaims(encrypted, clientSecret)
+	decrypted, err := heroku_oauth_buildpack.DecryptJWTClaims(encrypted, clientSecret)
 	if err != nil {
 		t.Fatalf("Decryption failed: %v", err)
 	}

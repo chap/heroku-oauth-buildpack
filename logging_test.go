@@ -1,4 +1,4 @@
-package heroku
+package heroku_oauth_buildpack_test
 
 import (
 	"bytes"

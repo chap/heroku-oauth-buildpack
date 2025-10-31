@@ -1,5 +1,5 @@
-// Package heroku implements Heroku OAuth middleware for dyno-proxy.
-package heroku
+// Package heroku_oauth_buildpack implements Heroku OAuth middleware for dyno-proxy.
+package heroku_oauth_buildpack
 
 import (
 	"context"
