@@ -1,3 +1,2 @@
-module github.com/dyno-proxy/plugins/heroku-oauth
-
+module github.com/chap/heroku-oauth-buildpack
 go 1.19
