@@ -14,6 +14,28 @@ import (
 	heroku_oauth_buildpack "github.com/chap/heroku-oauth-buildpack"
 )
 
+// numericEquals compares two numeric values that may be different types (int, int64, float64)
+func numericEquals(a, b interface{}) bool {
+	toFloat64 := func(v interface{}) (float64, bool) {
+		switch val := v.(type) {
+		case float64:
+			return val, true
+		case int64:
+			return float64(val), true
+		case int:
+			return float64(val), true
+		}
+		return 0, false
+	}
+
+	aFloat, aOk := toFloat64(a)
+	bFloat, bOk := toFloat64(b)
+	if !aOk || !bOk {
+		return false
+	}
+	return aFloat == bFloat
+}
+
 func TestNewWithConfig(t *testing.T) {
 	cfg := heroku_oauth_buildpack.CreateConfig()
 	cfg.ClientID = "test-client-id"
@@ -492,12 +514,13 @@ func createEncryptedJWTCookie(t *testing.T, claims map[string]interface{}, clien
 }
 
 func TestJWTClaimsEncryptionDecryption(t *testing.T) {
+	now := time.Now().Unix()
 	claims := map[string]interface{}{
 		"iss":                "heroku-oauth",
 		"sub":                "01234567-89ab-cdef-0123-456789abcdef",
 		"aud":                "heroku-oauth-app",
-		"exp":                int64(1234567890),
-		"iat":                int64(1234567890 - 3600),
+		"exp":                now + 3600, // 1 hour from now
+		"iat":                now,
 		"jti":                "2bf3ec81701ec291",
 		"access_token":       "HRKU-01234567-89ab-cdef-0123-456789abcdef",
 		"token_type":         "Bearer",
@@ -505,7 +528,7 @@ func TestJWTClaimsEncryptionDecryption(t *testing.T) {
 		"refresh_token":      "01234567-89ab-cdef-0123-456789abcdef",
 		"email":              "test@example.com",
 		"teams":              "team1,team2",
-		"refresh_expires_at": int64(1234567890 + (30 * 24 * 60 * 60)),
+		"refresh_expires_at": now + (30 * 24 * 60 * 60),
 	}
 
 	clientSecret := "test-client-secret"
@@ -527,7 +550,7 @@ func TestJWTClaimsEncryptionDecryption(t *testing.T) {
 	if decrypted["token_type"] != claims["token_type"] {
 		t.Errorf("TokenType mismatch: expected %s, got %s", claims["token_type"], decrypted["token_type"])
 	}
-	if decrypted["expires_in"] != claims["expires_in"] {
+	if !numericEquals(decrypted["expires_in"], claims["expires_in"]) {
 		t.Errorf("ExpiresIn mismatch: expected %v, got %v", claims["expires_in"], decrypted["expires_in"])
 	}
 	if decrypted["refresh_token"] != claims["refresh_token"] {
@@ -545,7 +568,7 @@ func TestJWTClaimsEncryptionDecryption(t *testing.T) {
 	if decrypted["teams"] != claims["teams"] {
 		t.Errorf("Teams mismatch: expected %s, got %s", claims["teams"], decrypted["teams"])
 	}
-	if decrypted["exp"] != claims["exp"] {
+	if !numericEquals(decrypted["exp"], claims["exp"]) {
 		t.Errorf("ExpiresAt mismatch: expected %v, got %v", claims["exp"], decrypted["exp"])
 	}
 }
@@ -903,12 +926,13 @@ func TestTokenRefreshWithoutRefreshToken(t *testing.T) {
 }
 
 func TestJWTClaimsWithRefreshExpiration(t *testing.T) {
+	now := time.Now().Unix()
 	claims := map[string]interface{}{
 		"iss":                "heroku-oauth",
 		"sub":                "01234567-89ab-cdef-0123-456789abcdef",
 		"aud":                "heroku-oauth-app",
-		"exp":                int64(1234567890),
-		"iat":                int64(1234567890 - 3600),
+		"exp":                now + 3600, // 1 hour from now
+		"iat":                now,
 		"jti":                "2bf3ec81701ec291",
 		"access_token":       "HRKU-01234567-89ab-cdef-0123-456789abcdef",
 		"token_type":         "Bearer",
@@ -916,7 +940,7 @@ func TestJWTClaimsWithRefreshExpiration(t *testing.T) {
 		"refresh_token":      "01234567-89ab-cdef-0123-456789abcdef",
 		"email":              "test@example.com",
 		"teams":              "team1,team2",
-		"refresh_expires_at": int64(1234567890 + (30 * 24 * 60 * 60)), // 30 days later
+		"refresh_expires_at": now + (30 * 24 * 60 * 60), // 30 days later
 	}
 
 	clientSecret := "test-client-secret"
@@ -938,7 +962,7 @@ func TestJWTClaimsWithRefreshExpiration(t *testing.T) {
 	if decrypted["token_type"] != claims["token_type"] {
 		t.Errorf("TokenType mismatch: expected %s, got %s", claims["token_type"], decrypted["token_type"])
 	}
-	if decrypted["expires_in"] != claims["expires_in"] {
+	if !numericEquals(decrypted["expires_in"], claims["expires_in"]) {
 		t.Errorf("ExpiresIn mismatch: expected %v, got %v", claims["expires_in"], decrypted["expires_in"])
 	}
 	if decrypted["refresh_token"] != claims["refresh_token"] {
@@ -956,10 +980,10 @@ func TestJWTClaimsWithRefreshExpiration(t *testing.T) {
 	if decrypted["teams"] != claims["teams"] {
 		t.Errorf("Teams mismatch: expected %s, got %s", claims["teams"], decrypted["teams"])
 	}
-	if decrypted["exp"] != claims["exp"] {
+	if !numericEquals(decrypted["exp"], claims["exp"]) {
 		t.Errorf("ExpiresAt mismatch: expected %v, got %v", claims["exp"], decrypted["exp"])
 	}
-	if decrypted["refresh_expires_at"] != claims["refresh_expires_at"] {
+	if !numericEquals(decrypted["refresh_expires_at"], claims["refresh_expires_at"]) {
 		t.Errorf("RefreshExpiresAt mismatch: expected %v, got %v", claims["refresh_expires_at"], decrypted["refresh_expires_at"])
 	}
 }

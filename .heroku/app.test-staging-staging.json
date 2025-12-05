@@ -1,0 +1,36 @@
+{
+  "apiVersion": "heroku.com/v1alpha1",
+  "buildpacks": [
+    {
+      "url": "https://heroku-oauth-bp-staging-2f042de3e200.herokuapp.com/buildpack/v1alpha1.tgz"
+    },
+    {
+      "url": "heroku/ruby"
+    }
+  ],
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "Eco"
+
+    }
+  },
+  "env": {
+    "HEROKU_MANIFEST_FILENAME": ".heroku/app.test-staging-staging.json",
+    "HEROKU_OAUTH_HOST": "identity.staging.herokudev.com",
+    "HEROKU_API_HOST": "api.staging.herokudev.com",
+  },
+  "kind": "app",
+  "name": "heroku-oauth-test-staging-staging",
+  "pipeline": "heroku-oauth-buildpack",
+  "stack": "heroku-24",
+  "stage": "development",
+  "proxy": [{
+    "path": "/auth*",
+    "plugins": [
+      {
+        "source": "github.com/chap/heroku-oauth-buildpack"
+      }
+    ]
+  }]
+}

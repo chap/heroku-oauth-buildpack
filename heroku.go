@@ -22,11 +22,9 @@ import (
 )
 
 const (
-	// Heroku OAuth endpoints
-	herokuOAuthAuthorizeURL = "https://id.heroku.com/oauth/authorize"
-	herokuOAuthTokenURL     = "https://id.heroku.com/oauth/token"
-	herokuOAuthRefreshURL   = "https://id.heroku.com/oauth/token"
-	herokuAPIAccountURL     = "https://api.heroku.com/account"
+	// Default Heroku hosts
+	defaultOAuthHost = "id.heroku.com"
+	defaultAPIHost   = "api.heroku.com"
 
 	// Default scopes
 	defaultScopes = "identity"
@@ -47,6 +45,42 @@ const (
 	LogLevelInfo  = 3
 	LogLevelDebug = 4
 )
+
+// getOAuthHost returns the OAuth host from environment or default
+func getOAuthHost() string {
+	if host := os.Getenv("HEROKU_OAUTH_HOST"); host != "" {
+		return host
+	}
+	return defaultOAuthHost
+}
+
+// getAPIHost returns the API host from environment or default
+func getAPIHost() string {
+	if host := os.Getenv("HEROKU_API_HOST"); host != "" {
+		return host
+	}
+	return defaultAPIHost
+}
+
+// getOAuthAuthorizeURL returns the OAuth authorize URL
+func getOAuthAuthorizeURL() string {
+	return "https://" + getOAuthHost() + "/oauth/authorize"
+}
+
+// getOAuthTokenURL returns the OAuth token URL
+func getOAuthTokenURL() string {
+	return "https://" + getOAuthHost() + "/oauth/token"
+}
+
+// getAPIAccountURL returns the API account URL
+func getAPIAccountURL() string {
+	return "https://" + getAPIHost() + "/account"
+}
+
+// getAPIOrganizationsURL returns the API organizations URL
+func getAPIOrganizationsURL() string {
+	return "https://" + getAPIHost() + "/organizations"
+}
 
 // getLogLevel returns the current log level based on environment variables
 func getLogLevel() int {
@@ -205,9 +239,9 @@ func New(ctx context.Context, next http.Handler, config *Config, name string) (h
 		name:            name,
 		domain:          config.Domain,
 		domains:         config.Domains,
-		oauthTokenURL:   herokuOAuthTokenURL,
-		oauthRefreshURL: herokuOAuthRefreshURL,
-		apiAccountURL:   herokuAPIAccountURL,
+		oauthTokenURL:   getOAuthTokenURL(),
+		oauthRefreshURL: getOAuthTokenURL(),
+		apiAccountURL:   getAPIAccountURL(),
 	}, nil
 }
 
@@ -326,8 +360,9 @@ func (h *HerokuOAuth) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 							SameSite: http.SameSiteLaxMode,
 						})
 
-						// Update claims for header injection
+						// Update claims and exp for header injection and expiration check
 						claims = updatedClaims
+						exp = now + int64(newTokenResp.ExpiresIn)
 					}
 				} else {
 					// Log refresh token failure
@@ -408,7 +443,7 @@ func (h *HerokuOAuth) initiateOAuth(rw http.ResponseWriter, req *http.Request) {
 	})
 
 	// Build authorization URL
-	authURL, _ := url.Parse(herokuOAuthAuthorizeURL)
+	authURL, _ := url.Parse(getOAuthAuthorizeURL())
 	params := authURL.Query()
 	params.Set("client_id", h.clientID)
 	params.Set("response_type", "code")
@@ -754,7 +789,7 @@ func (h *HerokuOAuth) getUserInfo(accessToken string) (*HerokuAccount, error) {
 
 // getUserOrganizations fetches the user's organization memberships from the Heroku API.
 func (h *HerokuOAuth) getUserOrganizations(accessToken string) ([]HerokuOrganization, error) {
-	req, err := http.NewRequest("GET", "https://api.heroku.com/organizations", nil)
+	req, err := http.NewRequest("GET", getAPIOrganizationsURL(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1109,6 +1144,7 @@ func DecodeJWT(token, secret string) (map[string]interface{}, error) {
 }
 
 // validateJWTClaims validates standard JWT claims according to RFC 7519
+// Note: Expiration is NOT validated here - it's checked in ServeHTTP to allow refresh token flow
 func validateJWTClaims(claims map[string]interface{}) error {
 
 	// Validate issuer
@@ -1121,12 +1157,8 @@ func validateJWTClaims(claims map[string]interface{}) error {
 		return fmt.Errorf("invalid audience claim")
 	}
 
-	// Validate expiration time
-	if exp, ok := claims["exp"].(float64); ok {
-		if int64(exp) < time.Now().Unix() {
-			return fmt.Errorf("JWT has expired")
-		}
-	}
+	// Note: Expiration time is NOT validated here to allow the refresh token flow
+	// to work with expired access tokens. Expiration is checked in ServeHTTP.
 
 	// Validate issued at time (should not be in the future)
 	if iat, ok := claims["iat"].(float64); ok {
@@ -1147,14 +1179,24 @@ func getStringClaim(claims map[string]interface{}, key string) string {
 }
 
 func getIntClaim(claims map[string]interface{}, key string) int {
-	if val, ok := claims[key].(float64); ok {
+	switch val := claims[key].(type) {
+	case float64:
 		return int(val)
+	case int64:
+		return int(val)
+	case int:
+		return val
 	}
 	return 0
 }
 
 func getInt64Claim(claims map[string]interface{}, key string) int64 {
-	if val, ok := claims[key].(float64); ok {
+	switch val := claims[key].(type) {
+	case float64:
+		return int64(val)
+	case int64:
+		return val
+	case int:
 		return int64(val)
 	}
 	return 0
